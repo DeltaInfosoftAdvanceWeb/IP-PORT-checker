@@ -1,0 +1,93 @@
+{
+    "header": {
+        "description": "CRN15-9 A-FGJ-A-V-HQQV 3x400/690 50 HZ",
+        "parentNumber": "93044582",
+        "prodOrderNo": "100018350651",
+        "prodOrderQty": "2",
+        "supplyArea": "SMCR  Small & Medium CR Assembly",
+        "transferOrderNo": "1001594"
+    },
+    "table": [
+        {
+            "storageBin": "210",
+            "storageType": "A02 O101",
+            "material": "96490704",
+            "description": "Base N, DN50, machined",
+            "qty": "2",
+            "uom": "PC",
+            "remarks": ""
+        },
+        {
+            "storageBin": "210",
+            "storageType": "A02 M102",
+            "material": "96486308",
+            "description": "Pumphead NEMA F182TC (basis-low), cat.",
+            "qty": "2",
+            "uom": "PC",
+            "remarks": ""
+        },
+        {
+            "storageBin": "210",
+            "storageType": "A02 O103",
+            "material": "96486323",
+            "description": "Flange F265 (MG132), cat.",
+            "qty": "2",
+            "uom": "PC",
+            "remarks": ""
+        },
+        {
+            "storageBin": "200",
+            "storageType": "A03 L402",
+            "material": "93084132",
+            "description": "MMG132S 3x415D-2 7.5kW IE3 B5/V1 TEFC",
+            "qty": "2",
+            "uom": "PC",
+            "remarks": ""
+        },
+        {
+            "storageBin": "210",
+            "storageType": "A02 Q101",
+            "material": "96490647",
+            "description": "Pump cover machined",
+            "qty": "2",
+            "uom": "PC",
+            "remarks": ""
+        },
+        {
+            "storageBin": "200",
+            "storageType": "D33 A001",
+            "material": "99356347",
+            "description": "Nameplate CR",
+            "qty": "2",
+            "uom": "PC",
+            "remarks": ""
+        },
+        {
+            "storageBin": "200",
+            "storageType": "A02 K101",
+            "material": "96493003",
+            "description": "Baseplate, high, cat.",
+            "qty": "2",
+            "uom": "PC",
+            "remarks": ""
+        },
+        {
+            "storageBin": "200",
+            "storageType": "A02 K102",
+            "material": "96476189",
+            "description": "Flange loose DN50 ISO/DIN PN40 CED",
+            "qty": "4",
+            "uom": "PC",
+            "remarks": ""
+        },
+        {
+            "storageBin": "200",
+            "storageType": "A02 M203",
+            "material": "96489857",
+            "description": "Outer sleeveD170,7x419mm EN 1.4401 brush",
+            "qty": "2",
+            "uom": "PC",
+            "remarks": ""
+        }
+    ]
+}

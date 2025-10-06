@@ -1,0 +1,113 @@
+
+import { NextResponse } from "next/server";
+import IPPortConfig from "../../../../modals/ipPortConfigSchema.js";
+import { connectToDatabase } from "../../../../../dbConfig";
+import jwt from "jsonwebtoken";
+
+export async function POST(req) {
+  try {
+    await connectToDatabase();
+
+    // Get token from cookies or headers
+    const token = req.cookies.get("authToken")?.value;
+
+    if (!token) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Authentication required. Please login first.",
+        },
+        { status: 401 }
+      );
+    }
+
+    // Verify token and extract user ID
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Invalid or expired token. Please login again.",
+        },
+        { status: 401 }
+      );
+    }
+
+    const userId = decoded.userId;
+
+    // Parse request body
+    const { entries, configName } = await req.json();
+
+    // Validate entries
+    if (!entries || !Array.isArray(entries) || entries.length === 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "At least one IP/Port entry is required",
+        },
+        { status: 400 }
+      );
+    }
+
+    // Validate each entry has ip and port
+    const isValid = entries.every(
+      (entry) =>
+        entry.ip &&
+        entry.port &&
+        entry.ip.trim() !== "" &&
+        entry.port.trim() !== ""
+    );
+
+    if (!isValid) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "All entries must have both IP address and port",
+        },
+        { status: 400 }
+      );
+    }
+
+    // Clean entries (remove id field from frontend)
+    const cleanedEntries = entries.map(({ ip, port }) => ({
+      ip: ip.trim(),
+      port: port.trim(),
+    }));
+
+    // Create new IP/Port configuration
+    const newConfig = new IPPortConfig({
+      userId,
+      entries: cleanedEntries,
+      configName: configName || "Default Configuration",
+    });
+
+    await newConfig.save();
+
+    return NextResponse.json(
+      {
+        success: true,
+        message: "IP/Port configuration saved successfully",
+        data: {
+          configId: newConfig._id,
+          userId: newConfig.userId,
+          entries: newConfig.entries,
+          configName: newConfig.configName,
+          createdAt: newConfig.createdAt,
+        },
+      },
+      { status: 201 }
+    );
+  } catch (error) {
+    console.error("Error saving IP/Port configuration:", error);
+    return NextResponse.json(
+      {
+        success: false,
+        message: "An error occurred while saving configuration",
+        error: error.message,
+      },
+      { status: 500 }
+    );
+  }
+}
