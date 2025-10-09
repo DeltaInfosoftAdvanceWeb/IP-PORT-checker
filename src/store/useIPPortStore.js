@@ -1,7 +1,7 @@
-// store/useIPPortStore.js
-import { create } from 'zustand';
-import axios from 'axios';
-import toast from 'react-hot-toast';
+
+import { create } from "zustand";
+import axios from "axios";
+import toast from "react-hot-toast";
 
 const useIPPortStore = create((set, get) => ({
   // State
@@ -14,18 +14,20 @@ const useIPPortStore = create((set, get) => ({
   openModal: () => set({ isModalOpen: true }),
   closeModal: () => set({ isModalOpen: false }),
 
-  // Fetch configurations from API
+  // Fetch all IP/Port configurations for current user
   fetchConfigurations: async () => {
     try {
-      const { data } = await axios.get('/api/ip-port-config/get');
-      if (data.success && data.data) {
+      const { data } = await axios.get("/api/ip-port-config/get");
+      if (data.success) {
         set({
-          entries: data.data.filter((d) => d.entries && d.entries.length > 0),
+          entries: data.data.filter(
+            (config) => Array.isArray(config.entries) && config.entries.length > 0
+          ),
         });
       }
     } catch (error) {
-      console.error('Error fetching configurations:', error);
-      toast.error('Failed to fetch configurations');
+      console.error("Error fetching configurations:", error);
+      toast.error("Failed to fetch configurations");
     }
   },
 
@@ -33,23 +35,19 @@ const useIPPortStore = create((set, get) => ({
   addConfiguration: async (configData) => {
     set({ isLoading: true });
     try {
-      const response = await axios.post('/api/ip-port-config/add', {
-        entries: configData.entries.map(({ ip, port }) => ({ ip, port })),
-        configName: configData.configName || 'My Configuration',
-      });
-
+      const response = await axios.post("/api/ip-port-config/add", configData);
       if (response.data.success) {
-        toast.success('Configuration saved successfully!');
+        toast.success("Configuration saved successfully!");
         await get().fetchConfigurations();
         get().closeModal();
         return { success: true };
       } else {
-        toast.error(response.data.message || 'Failed to save configuration');
+        toast.error(response.data.message || "Failed to save configuration");
         return { success: false };
       }
     } catch (error) {
-      console.error('Failed to save configuration:', error);
-      toast.error('An error occurred while saving');
+      console.error("Failed to save configuration:", error);
+      toast.error("An error occurred while saving");
       return { success: false };
     } finally {
       set({ isLoading: false });
@@ -58,113 +56,108 @@ const useIPPortStore = create((set, get) => ({
 
   // Delete configuration
   deleteConfiguration: async (configId) => {
-    const confirmed = window.confirm(
-      'Are you sure you want to delete this configuration?'
-    );
+    const confirmed = window.confirm("Are you sure you want to delete this configuration?");
     if (!confirmed) return;
 
     try {
-      const response = await axios.delete(
-        `/api/ip-port-config/delete/${configId}`
-      );
-
+      const response = await axios.delete(`/api/ip-port-config/delete/${configId}`);
       if (response.data.success) {
         set((state) => ({
-          entries: state.entries.filter((entry) => entry._id !== configId),
+          entries: state.entries.filter((config) => config._id !== configId),
         }));
-        toast.success('Configuration deleted successfully!');
+        toast.success("Configuration deleted successfully!");
       } else {
-        toast.error(response.data.message || 'Failed to delete configuration');
+        toast.error(response.data.message || "Failed to delete configuration");
       }
     } catch (error) {
-      console.error('Error deleting configuration:', error);
-      toast.error('An error occurred while deleting');
+      console.error("Error deleting configuration:", error);
+      toast.error("An error occurred while deleting");
     }
   },
 
   // Check status for a single entry
   checkSingleStatus: async (configId, entryIndex, entry) => {
+    // Mark as checking
     set((state) => ({
-      entries: state.entries.map((c) =>
-        c._id === configId
+      entries: state.entries.map((config) =>
+        config._id === configId
           ? {
-              ...c,
-              entries: c.entries.map((e, idx) =>
-                idx === entryIndex ? { ...e, status: 'checking' } : e
+              ...config,
+              entries: config.entries.map((e, idx) =>
+                idx === entryIndex ? { ...e, status: "checking" } : e
               ),
             }
-          : c
+          : config
       ),
     }));
 
     try {
-      const response = await axios.post('/api/ip-port-config/check-status', {
+      const response = await axios.post("/api/ip-port-config/check-status", {
         entries: [{ ip: entry.ip, port: entry.port }],
       });
 
       if (response.data.success && response.data.results.length > 0) {
         const result = response.data.results[0];
         set((state) => ({
-          entries: state.entries.map((c) =>
-            c._id === configId
+          entries: state.entries.map((config) =>
+            config._id === configId
               ? {
-                  ...c,
-                  entries: c.entries.map((e, idx) =>
+                  ...config,
+                  entries: config.entries.map((e, idx) =>
                     idx === entryIndex
                       ? {
                           ...e,
                           status: result.status,
-                          lastChecked: new Date(),
                           responseTime: result.responseTime,
+                          checkedAt: new Date(),
                         }
                       : e
                   ),
                 }
-              : c
+              : config
           ),
         }));
       }
     } catch (error) {
-      console.error('Error checking status:', error);
+      console.error("Error checking status:", error);
       set((state) => ({
-        entries: state.entries.map((c) =>
-          c._id === configId
+        entries: state.entries.map((config) =>
+          config._id === configId
             ? {
-                ...c,
-                entries: c.entries.map((e, idx) =>
+                ...config,
+                entries: config.entries.map((e, idx) =>
                   idx === entryIndex
-                    ? { ...e, status: 'offline', lastChecked: new Date() }
+                    ? { ...e, status: "offline", checkedAt: new Date() }
                     : e
                 ),
               }
-            : c
+            : config
         ),
       }));
     }
   },
 
-  // Check status for all entries
+  // Check status for all entries in all configs
   checkAllStatus: async () => {
     const { entries } = get();
     if (entries.length === 0) return;
 
     set({ isChecking: true });
+
+    // Mark all as checking
     set((state) => ({
       entries: state.entries.map((config) => ({
         ...config,
-        entries: config.entries.map((entry) => ({
-          ...entry,
-          status: 'checking',
-        })),
+        entries: config.entries.map((e) => ({ ...e, status: "checking" })),
       })),
     }));
 
     try {
       const allEntries = entries.flatMap((config) =>
-        config.entries.map((entry) => ({ ip: entry.ip, port: entry.port }))
+        config.entries.map((e) => ({ ip: e.ip, port: e.port }))
       );
 
-      const response = await axios.post('/api/ip-port-config/check-status', {
+      const response = await axios.post("/api/ip-port-config/check-status", {
         entries: allEntries,
       });
 
@@ -178,58 +171,42 @@ const useIPPortStore = create((set, get) => ({
               return {
                 ...entry,
                 status: result.status,
-                lastChecked: new Date(),
                 responseTime: result.responseTime,
+                checkedAt: new Date(),
               };
             }),
           })),
         }));
-        toast.success('Status check completed');
+        toast.success("Status check completed");
       }
     } catch (error) {
-      console.error('Error checking all status:', error);
+      console.error("Error checking all status:", error);
+      toast.error("Failed to check status");
       set((state) => ({
         entries: state.entries.map((config) => ({
           ...config,
-          entries: config.entries.map((entry) => ({
-            ...entry,
-            status: 'offline',
-            lastChecked: new Date(),
+          entries: config.entries.map((e) => ({
+            ...e,
+            status: "offline",
+            checkedAt: new Date(),
           })),
         })),
       }));
-      toast.error('Failed to check status');
     } finally {
       set({ isChecking: false });
     }
   },
 
-  // Get total stats
+  // Total stats
   getTotalStats: () => {
     const { entries } = get();
-    const allEntries = entries.flatMap((config) => config.entries || []);
+    const all = entries.flatMap((c) => c.entries || []);
     return {
-      total: allEntries.length,
-      online: allEntries.filter((e) => e.status === 'online').length,
-      offline: allEntries.filter((e) => e.status === 'offline').length,
-      checking: allEntries.filter((e) => e.status === 'checking').length,
+      total: all.length,
+      online: all.filter((e) => e.status === "online").length,
+      offline: all.filter((e) => e.status === "offline").length,
+      checking: all.filter((e) => e.status === "checking").length,
     };
-  },
-
-  // Authentication
-  logout: async (router) => {
-    try {
-      const { data } = await axios.get('/api/logout');
-      if (data.status === 200) {
-        toast.success(data.message);
-        router.push('/login');
-      } else {
-        toast.error(data.message);
-      }
-    } catch (err) {
-      console.error('Logout error:', err);
-      toast.error(err?.response?.data?.message || 'Logout failed');
-    }
   },
 }));
 

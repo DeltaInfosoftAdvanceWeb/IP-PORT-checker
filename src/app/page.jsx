@@ -15,9 +15,29 @@ const Home = () => {
     getTotalStats,
   } = useIPPortStore();
 
+  //  Format time utility
+  const formatTime = (date) => {
+    if (!date) return "-";
+    const d = date instanceof Date ? date : new Date(date);
+    return d.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+  };
+
+  
   useEffect(() => {
-    fetchConfigurations();
+    const init = async () => {
+      await fetchConfigurations();
+      if (entries.length > 0) {
+        checkAllStatus();
+      }
+    };
+    init();
+    
   }, []);
+
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -49,14 +69,6 @@ const Home = () => {
     }
   };
 
-  const formatTime = (date) => {
-    return date.toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    });
-  };
-
   const stats = getTotalStats();
 
   return (
@@ -72,8 +84,7 @@ const Home = () => {
                   IP & Port Monitor
                 </h2>
                 <p className="text-xs sm:text-sm text-gray-500 mt-1">
-                  {stats.total} {stats.total === 1 ? "entry" : "entries"}{" "}
-                  configured
+                  {stats.total} {stats.total === 1 ? "entry" : "entries"} configured
                 </p>
               </div>
               <div className="w-full sm:w-auto">
@@ -82,10 +93,7 @@ const Home = () => {
                   disabled={isChecking || entries.length === 0}
                   className="flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2 bg-[#1ca5b3] hover:bg-[#107f8c] disabled:bg-[#1ca5b3] text-white rounded-md transition-colors text-sm"
                 >
-                  <RefreshCw
-                    size={16}
-                    className={isChecking ? "animate-spin" : ""}
-                  />
+                  <RefreshCw size={16} className={isChecking ? "animate-spin" : ""} />
                   Check All
                 </button>
               </div>
@@ -152,9 +160,7 @@ const Home = () => {
                           <div className="flex items-center gap-2">
                             <Circle
                               className={`${getStatusColor(entry.status)} ${
-                                entry.status === "checking"
-                                  ? "animate-pulse"
-                                  : ""
+                                entry.status === "checking" ? "animate-pulse" : ""
                               }`}
                               size={12}
                               fill="currentColor"
@@ -171,55 +177,45 @@ const Home = () => {
                           <div className="flex-1 w-full">
                             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
                               <div className="flex items-center flex-wrap gap-1">
-                                <span className="text-xs sm:text-sm text-gray-500">
-                                  IP:
-                                </span>
+                                <span className="text-xs sm:text-sm text-gray-500">IP:</span>
                                 <span className="text-xs sm:text-sm font-mono font-semibold text-gray-900 break-all">
                                   {entry.ip}
                                 </span>
                               </div>
                               <div className="flex items-center flex-wrap gap-1">
-                                <span className="text-xs sm:text-sm text-gray-500">
-                                  Port:
-                                </span>
+                                <span className="text-xs sm:text-sm text-gray-500">Port:</span>
                                 <span className="text-xs sm:text-sm font-mono font-semibold text-gray-900">
                                   {entry.port}
                                 </span>
                               </div>
                               {entry.responseTime && (
                                 <div className="flex items-center flex-wrap gap-1">
-                                  <span className="text-xs sm:text-sm text-gray-500">
-                                    Response:
-                                  </span>
+                                  <span className="text-xs sm:text-sm text-gray-500">Response:</span>
                                   <span className="text-xs sm:text-sm font-mono font-semibold text-gray-900">
                                     {entry.responseTime}ms
                                   </span>
                                 </div>
                               )}
                             </div>
-                            {entry.lastChecked && (
+
+                            {/*  Checked At field */}
+                            {entry.checkedAt || entry.lastChecked ? (
                               <p className="text-xs text-gray-500 mt-1">
-                                Last checked: {formatTime(entry.lastChecked)}
+                                Checked At: {formatTime(entry.checkedAt || entry.lastChecked)}
                               </p>
-                            )}
+                            ) : null}
                           </div>
                         </div>
 
                         <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
                           <button
-                            onClick={() =>
-                              checkSingleStatus(config._id, i, entry)
-                            }
+                            onClick={() => checkSingleStatus(config._id, i, entry)}
                             disabled={entry.status === "checking"}
                             className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors disabled:opacity-50"
                           >
                             <RefreshCw
                               size={16}
-                              className={
-                                entry.status === "checking"
-                                  ? "animate-spin"
-                                  : ""
-                              }
+                              className={entry.status === "checking" ? "animate-spin" : ""}
                             />
                           </button>
                           <button

@@ -1,4 +1,4 @@
-// modals/ipPortConfigSchema.js
+
 import mongoose from "mongoose";
 
 const ipPortEntrySchema = new mongoose.Schema({
@@ -12,6 +12,19 @@ const ipPortEntrySchema = new mongoose.Schema({
     required: true,
     trim: true,
   },
+  checkedAt: {
+    type: Date,
+    default: Date.now,
+  },
+  status: {
+    type: String,
+    enum: ["online", "offline", "timeout", "checking", "unknown"],
+    default: "unknown",
+  },
+  responseTime: {
+    type: Number,
+    default: null,
+  },
 });
 
 const ipPortConfigSchema = new mongoose.Schema(
@@ -23,11 +36,11 @@ const ipPortConfigSchema = new mongoose.Schema(
       index: true,
     },
     entries: {
-      type: [ipPortEntrySchema],
+      type: [ipPortEntrySchema], 
       required: true,
       validate: {
         validator: function (entries) {
-          return entries.length > 0;
+          return Array.isArray(entries) && entries.length > 0;
         },
         message: "At least one IP/Port entry is required",
       },
@@ -43,7 +56,7 @@ const ipPortConfigSchema = new mongoose.Schema(
   }
 );
 
-// Create index for faster queries
+
 ipPortConfigSchema.index({ userId: 1, createdAt: -1 });
 
 const IPPortConfig =
