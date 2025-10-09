@@ -1,8 +1,10 @@
 "use client";
 import React, { useEffect } from "react";
 import { Header } from "@/components/Header.jsx";
-import { Trash2, RefreshCw, Circle } from "lucide-react";
+import { Trash2, RefreshCw, Circle, Mail } from "lucide-react";
 import useIPPortStore from "@/store/useIPPortStore";
+import { Popconfirm, Spin } from "antd";
+import { QuestionCircleOutlined } from "@ant-design/icons";
 
 const Home = () => {
   const {
@@ -13,6 +15,7 @@ const Home = () => {
     checkSingleStatus,
     checkAllStatus,
     getTotalStats,
+    isLoading,
   } = useIPPortStore();
 
   //  Format time utility
@@ -26,7 +29,6 @@ const Home = () => {
     });
   };
 
-  
   useEffect(() => {
     const init = async () => {
       await fetchConfigurations();
@@ -35,9 +37,7 @@ const Home = () => {
       }
     };
     init();
-    
   }, []);
-
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -72,7 +72,13 @@ const Home = () => {
   const stats = getTotalStats();
 
   return (
-    <div className="min-h-screen bg-white p-2 sm:p-4 md:mx-8 md:my-1">
+    <div className="min-h-screen bg-white p-2 sm:p-4 md:mx-8 md:my-1 px-6 md:px-16 lg:px-20">
+      {isLoading && (
+        <div className="fixed inset-0 flex justify-center items-center bg-black bg-opacity-20 z-50 pointer-events-none">
+          <Spin size="large" />
+        </div>
+      )}
+
       <Header />
       <div className="min-h-[calc(100vh-120px)] bg-gradient-to-b from-[#1ca5b3]/30 to-white rounded-md p-3 sm:p-6 overflow-auto">
         <div className="bg-white rounded-lg shadow-lg min-h-[600px]">
@@ -84,16 +90,29 @@ const Home = () => {
                   IP & Port Monitor
                 </h2>
                 <p className="text-xs sm:text-sm text-gray-500 mt-1">
-                  {stats.total} {stats.total === 1 ? "entry" : "entries"} configured
+                  {stats.total} {stats.total === 1 ? "entry" : "entries"}{" "}
+                  configured
                 </p>
               </div>
-              <div className="w-full sm:w-auto">
+              <div className="w-full sm:w-auto flex gap-2">
+                <button
+                  disabled={isLoading}
+                  className="flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-[#1ca5b3] text-white rounded transition-colors text-sm"
+                >
+                  <Mail
+                    size={16}
+                  />
+                  Send Email
+                </button>
                 <button
                   onClick={checkAllStatus}
                   disabled={isChecking || entries.length === 0}
-                  className="flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2 bg-[#1ca5b3] hover:bg-[#107f8c] disabled:bg-[#1ca5b3] text-white rounded-md transition-colors text-sm"
+                  className="flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2 bg-[#1ca5b3] hover:bg-[#107f8c] disabled:bg-[#1ca5b3] text-white rounded transition-colors text-sm"
                 >
-                  <RefreshCw size={16} className={isChecking ? "animate-spin" : ""} />
+                  <RefreshCw
+                    size={16}
+                    className={isChecking ? "animate-spin" : ""}
+                  />
                   Check All
                 </button>
               </div>
@@ -160,7 +179,9 @@ const Home = () => {
                           <div className="flex items-center gap-2">
                             <Circle
                               className={`${getStatusColor(entry.status)} ${
-                                entry.status === "checking" ? "animate-pulse" : ""
+                                entry.status === "checking"
+                                  ? "animate-pulse"
+                                  : ""
                               }`}
                               size={12}
                               fill="currentColor"
@@ -177,20 +198,26 @@ const Home = () => {
                           <div className="flex-1 w-full">
                             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
                               <div className="flex items-center flex-wrap gap-1">
-                                <span className="text-xs sm:text-sm text-gray-500">IP:</span>
+                                <span className="text-xs sm:text-sm text-gray-500">
+                                  IP:
+                                </span>
                                 <span className="text-xs sm:text-sm font-mono font-semibold text-gray-900 break-all">
                                   {entry.ip}
                                 </span>
                               </div>
                               <div className="flex items-center flex-wrap gap-1">
-                                <span className="text-xs sm:text-sm text-gray-500">Port:</span>
+                                <span className="text-xs sm:text-sm text-gray-500">
+                                  Port:
+                                </span>
                                 <span className="text-xs sm:text-sm font-mono font-semibold text-gray-900">
                                   {entry.port}
                                 </span>
                               </div>
                               {entry.responseTime && (
                                 <div className="flex items-center flex-wrap gap-1">
-                                  <span className="text-xs sm:text-sm text-gray-500">Response:</span>
+                                  <span className="text-xs sm:text-sm text-gray-500">
+                                    Response:
+                                  </span>
                                   <span className="text-xs sm:text-sm font-mono font-semibold text-gray-900">
                                     {entry.responseTime}ms
                                   </span>
@@ -201,29 +228,52 @@ const Home = () => {
                             {/*  Checked At field */}
                             {entry.checkedAt || entry.lastChecked ? (
                               <p className="text-xs text-gray-500 mt-1">
-                                Checked At: {formatTime(entry.checkedAt || entry.lastChecked)}
+                                Checked At:{" "}
+                                {formatTime(
+                                  entry.checkedAt || entry.lastChecked
+                                )}
                               </p>
                             ) : null}
+                            <p className="text-xs text-gray-500 mt-1">
+                              Config Name: {config.configName}
+                            </p>
                           </div>
                         </div>
 
                         <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
                           <button
-                            onClick={() => checkSingleStatus(config._id, i, entry)}
+                            onClick={() =>
+                              checkSingleStatus(config._id, i, entry)
+                            }
                             disabled={entry.status === "checking"}
                             className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors disabled:opacity-50"
                           >
                             <RefreshCw
                               size={16}
-                              className={entry.status === "checking" ? "animate-spin" : ""}
+                              className={
+                                entry.status === "checking"
+                                  ? "animate-spin"
+                                  : ""
+                              }
                             />
                           </button>
-                          <button
-                            onClick={() => deleteConfiguration(config._id)}
-                            className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+
+                          <Popconfirm
+                            title="Delete Config"
+                            description="Are you sure to delete this config?"
+                            onConfirm={() => deleteConfiguration(config._id)}
+                            okText="Delete"
+                            icon={
+                              <QuestionCircleOutlined
+                                style={{ color: "red" }}
+                              />
+                            }
+                            cancelText="Cencel"
                           >
-                            <Trash2 size={16} />
-                          </button>
+                            <button className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors">
+                              <Trash2 size={16} />
+                            </button>
+                          </Popconfirm>
                         </div>
                       </div>
                     </div>

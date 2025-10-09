@@ -19,6 +19,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { Spin } from "antd";
 
 
 const formSchema = z.object({
@@ -70,6 +71,11 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen  flex items-center justify-center bg-gradient-to-b from-[#1ca5b3] to-white p-4">
       <Toaster position="bottom-right" />
+      {isLoading && (
+        <div className="fixed inset-0 flex justify-center items-center bg-black bg-opacity-20 z-50 pointer-events-none">
+          <Spin size="large" />
+        </div>
+      )}
       <div className="w-full flex justify-center items-center">
         <div className="rounded-3xl p-8 shadow-2xl bg-gradient-to-b from-[#1ca5b3]  to-white  text-white w-[500px] py-10">
           <h1 className="text-2xl font-semibold text-white mb-6">Login</h1>

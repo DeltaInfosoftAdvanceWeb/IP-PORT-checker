@@ -5,10 +5,12 @@ import React, { useState } from "react";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 import useIPPortStore from "@/store/useIPPortStore";
+import { Label } from "./ui/label";
 
 const IPPortForm = () => {
-  const { closeModal, addConfiguration, isLoading } = useIPPortStore();
+  const { closeModal, addConfiguration, isLoading,checkAllStatus } = useIPPortStore();
   const [entries, setEntries] = useState([{ id: "1", ip: "", port: "" }]);
+  const [configName,setConfigName] = useState("")
   const [nextId, setNextId] = useState(2);
 
   const addEntry = () => {
@@ -87,12 +89,13 @@ const IPPortForm = () => {
   const handleSubmit = async () => {
     const result = await addConfiguration({
       entries: entries.map(({ ip, port }) => ({ ip, port })),
-      configName: "My Configuration",
+      configName
     });
 
     if (result.success) {
       setEntries([{ id: "1", ip: "", port: "" }]);
       setNextId(2);
+      checkAllStatus()
     }
   };
 
@@ -110,6 +113,10 @@ const IPPortForm = () => {
             </div>
 
             <div className="space-y-3">
+              <div>
+                <Label>Config Name:</Label>
+                <Input type="text" onChange={(e)=> setConfigName(e.target.value)} value={configName} className="rounded outline-none w-full" />
+              </div>
               <div className="hidden sm:grid grid-cols-12 gap-3 text-xs font-medium text-gray-500 uppercase tracking-wide pb-2">
                 <div className="col-span-5">IP Address</div>
                 <div className="col-span-5">Port</div>

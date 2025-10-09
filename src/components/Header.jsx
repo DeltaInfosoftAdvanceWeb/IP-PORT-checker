@@ -9,21 +9,42 @@ import { Label } from "./ui/label";
 import useIPPortStore from "@/store/useIPPortStore";
 
 import logo from "../../public/logo.png";
+import axios from "axios";
+import toast from "react-hot-toast";
+import { useState } from "react";
+import { Spin } from "antd";
 
 export function Header() {
   const router = useRouter();
-  const { isModalOpen, openModal, closeModal, logout } = useIPPortStore();
+  const { isModalOpen, openModal } = useIPPortStore();
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleLogoClick = () => {
     router.push("/");
   };
 
-  const handleLogout = () => {
-    logout(router);
+  const handleLogout = async () => {
+    setIsLoading(true);
+    try {
+      await axios.get("/api/logout");
+      toast.success("Logout success");
+      router.push("/login");
+    } catch (error) {
+      console.log(error);
+
+      toast.error("Logout Failed");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
     <>
+      {isLoading && (
+        <div className="fixed inset-0 flex justify-center items-center bg-black bg-opacity-20 z-50 pointer-events-none">
+          <Spin size="large" />
+        </div>
+      )}
       <header className="sticky top-0 z-30 w-full bg-white">
         <div className="mx-auto px-2 sm:px-4 lg:px-8">
           <div className="flex h-16 sm:h-20 items-center justify-between gap-2">

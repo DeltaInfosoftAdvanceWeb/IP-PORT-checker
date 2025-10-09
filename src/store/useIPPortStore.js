@@ -1,4 +1,3 @@
-
 import { create } from "zustand";
 import axios from "axios";
 import toast from "react-hot-toast";
@@ -16,18 +15,23 @@ const useIPPortStore = create((set, get) => ({
 
   // Fetch all IP/Port configurations for current user
   fetchConfigurations: async () => {
+    set({ isLoading: true });
+
     try {
       const { data } = await axios.get("/api/ip-port-config/get");
       if (data.success) {
         set({
           entries: data.data.filter(
-            (config) => Array.isArray(config.entries) && config.entries.length > 0
+            (config) =>
+              Array.isArray(config.entries) && config.entries.length > 0
           ),
         });
       }
     } catch (error) {
       console.error("Error fetching configurations:", error);
       toast.error("Failed to fetch configurations");
+    } finally {
+      set({ isLoading: false });
     }
   },
 
@@ -56,11 +60,12 @@ const useIPPortStore = create((set, get) => ({
 
   // Delete configuration
   deleteConfiguration: async (configId) => {
-    const confirmed = window.confirm("Are you sure you want to delete this configuration?");
-    if (!confirmed) return;
+    set({ isLoading: true });
 
     try {
-      const response = await axios.delete(`/api/ip-port-config/delete/${configId}`);
+      const response = await axios.delete(
+        `/api/ip-port-config/delete/${configId}`
+      );
       if (response.data.success) {
         set((state) => ({
           entries: state.entries.filter((config) => config._id !== configId),
@@ -72,12 +77,13 @@ const useIPPortStore = create((set, get) => ({
     } catch (error) {
       console.error("Error deleting configuration:", error);
       toast.error("An error occurred while deleting");
+    } finally {
+      set({ isLoading: false });
     }
   },
 
   // Check status for a single entry
   checkSingleStatus: async (configId, entryIndex, entry) => {
-    // Mark as checking
     set((state) => ({
       entries: state.entries.map((config) =>
         config._id === configId
@@ -139,6 +145,7 @@ const useIPPortStore = create((set, get) => ({
 
   // Check status for all entries in all configs
   checkAllStatus: async () => {
+
     const { entries } = get();
     if (entries.length === 0) return;
 
