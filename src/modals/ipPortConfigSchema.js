@@ -1,4 +1,3 @@
-
 import mongoose from "mongoose";
 
 const ipPortEntrySchema = new mongoose.Schema({
@@ -25,6 +24,10 @@ const ipPortEntrySchema = new mongoose.Schema({
     type: Number,
     default: null,
   },
+  referPortName: {
+    type: String,
+    default: "custom",
+  },
 });
 
 const ipPortConfigSchema = new mongoose.Schema(
@@ -36,7 +39,7 @@ const ipPortConfigSchema = new mongoose.Schema(
       index: true,
     },
     entries: {
-      type: [ipPortEntrySchema], 
+      type: [ipPortEntrySchema],
       required: true,
       validate: {
         validator: function (entries) {
@@ -55,7 +58,6 @@ const ipPortConfigSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
-
 
 ipPortConfigSchema.index({ userId: 1, createdAt: -1 });
 

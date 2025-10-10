@@ -9,7 +9,7 @@ import { Label } from "./ui/label";
 
 const IPPortForm = () => {
   const { closeModal, addConfiguration, isLoading,checkAllStatus } = useIPPortStore();
-  const [entries, setEntries] = useState([{ id: "1", ip: "", port: "" }]);
+  const [entries, setEntries] = useState([{ id: "1", ip: "", port: ""}]);
   const [configName,setConfigName] = useState("")
   const [nextId, setNextId] = useState(2);
 

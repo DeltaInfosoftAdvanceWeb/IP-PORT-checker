@@ -19,6 +19,7 @@ const useIPPortStore = create((set, get) => ({
 
     try {
       const { data } = await axios.get("/api/ip-port-config/get");
+      
       if (data.success) {
         set({
           entries: data.data.filter(
@@ -70,6 +71,7 @@ const useIPPortStore = create((set, get) => ({
         set((state) => ({
           entries: state.entries.filter((config) => config._id !== configId),
         }));
+         await get().checkAllStatus();
         toast.success("Configuration deleted successfully!");
       } else {
         toast.error(response.data.message || "Failed to delete configuration");
@@ -99,7 +101,7 @@ const useIPPortStore = create((set, get) => ({
 
     try {
       const response = await axios.post("/api/ip-port-config/check-status", {
-        entries: [{ ip: entry.ip, port: entry.port }],
+        entries: [{...entry,configId}],
       });
 
       if (response.data.success && response.data.results.length > 0) {
@@ -145,7 +147,6 @@ const useIPPortStore = create((set, get) => ({
 
   // Check status for all entries in all configs
   checkAllStatus: async () => {
-
     const { entries } = get();
     if (entries.length === 0) return;
 
@@ -161,7 +162,10 @@ const useIPPortStore = create((set, get) => ({
 
     try {
       const allEntries = entries.flatMap((config) =>
-        config.entries.map((e) => ({ ip: e.ip, port: e.port }))
+        config.entries.map((e) => ({
+          ...e,
+          configId: config._id, 
+        }))
       );
 
       const response = await axios.post("/api/ip-port-config/check-status", {
@@ -201,6 +205,25 @@ const useIPPortStore = create((set, get) => ({
       }));
     } finally {
       set({ isChecking: false });
+    }
+  },
+
+  sendEmail: async () => {
+    set({ isLoading: true });
+    try {
+      const response = await axios.post("/api/sendEmail", { sendMail: true });
+      if (response.data.success) {
+        toast.success("Email send successfully!");
+        return { success: true };
+      } else {
+        toast.error(response.data.message || "Failed to send Email");
+        return { success: false };
+      }
+    } catch (error) {
+      console.error("Error sending Email:", error);
+      toast.error("An error occurred while sending Email");
+    } finally {
+      set({ isLoading: false });
     }
   },
 

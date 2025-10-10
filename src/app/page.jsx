@@ -15,6 +15,7 @@ const Home = () => {
     checkSingleStatus,
     checkAllStatus,
     getTotalStats,
+    sendEmail,
     isLoading,
   } = useIPPortStore();
 
@@ -96,12 +97,11 @@ const Home = () => {
               </div>
               <div className="w-full sm:w-auto flex gap-2">
                 <button
+                  onClick={() => sendEmail()}
                   disabled={isLoading}
-                  className="flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-[#1ca5b3] text-white rounded transition-colors text-sm"
+                  className="flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white rounded transition-colors text-sm"
                 >
-                  <Mail
-                    size={16}
-                  />
+                  <Mail size={16} />
                   Send Email
                 </button>
                 <button
@@ -236,6 +236,9 @@ const Home = () => {
                             ) : null}
                             <p className="text-xs text-gray-500 mt-1">
                               Config Name: {config.configName}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              Port refer to : {entry.referPortName}
                             </p>
                           </div>
                         </div>
