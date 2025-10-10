@@ -1,10 +1,12 @@
 "use client";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { Header } from "@/components/Header.jsx";
-import { Trash2, RefreshCw, Circle, Mail } from "lucide-react";
+import { Trash2, RefreshCw, Circle, Mail, Edit } from "lucide-react";
 import useIPPortStore from "@/store/useIPPortStore";
 import { Popconfirm, Spin } from "antd";
 import { QuestionCircleOutlined } from "@ant-design/icons";
+import IPPortForm from "@/components/IPPortForm";
+
 
 const Home = () => {
   const {
@@ -18,6 +20,9 @@ const Home = () => {
     sendEmail,
     isLoading,
   } = useIPPortStore();
+
+  const [isEditing,setIsEditing] = useState(false);
+
 
   //  Format time utility
   const formatTime = (date) => {
@@ -261,6 +266,15 @@ const Home = () => {
                             />
                           </button>
 
+                          <button
+                            onClick={() => setIsEditing(true)}
+                            className="p-2 text-gray-600 hover:text-yellow-600 hover:bg-yellow-50 rounded-md transition-colors"
+                          >
+                            <Edit size={16} />
+                          </button>
+                              {
+                                isEditing && <IPPortForm configId={config._id} isEditing={isEditing} setIsEditing={setIsEditing} />
+                              }
                           <Popconfirm
                             title="Delete Config"
                             description="Are you sure to delete this config?"

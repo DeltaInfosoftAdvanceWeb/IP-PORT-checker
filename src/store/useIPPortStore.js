@@ -19,7 +19,7 @@ const useIPPortStore = create((set, get) => ({
 
     try {
       const { data } = await axios.get("/api/ip-port-config/get");
-      
+
       if (data.success) {
         set({
           entries: data.data.filter(
@@ -71,7 +71,7 @@ const useIPPortStore = create((set, get) => ({
         set((state) => ({
           entries: state.entries.filter((config) => config._id !== configId),
         }));
-         await get().checkAllStatus();
+        await get().checkAllStatus();
         toast.success("Configuration deleted successfully!");
       } else {
         toast.error(response.data.message || "Failed to delete configuration");
@@ -101,7 +101,7 @@ const useIPPortStore = create((set, get) => ({
 
     try {
       const response = await axios.post("/api/ip-port-config/check-status", {
-        entries: [{...entry,configId}],
+        entries: [{ ...entry, configId }],
       });
 
       if (response.data.success && response.data.results.length > 0) {
@@ -164,7 +164,7 @@ const useIPPortStore = create((set, get) => ({
       const allEntries = entries.flatMap((config) =>
         config.entries.map((e) => ({
           ...e,
-          configId: config._id, 
+          configId: config._id,
         }))
       );
 
@@ -222,6 +222,52 @@ const useIPPortStore = create((set, get) => ({
     } catch (error) {
       console.error("Error sending Email:", error);
       toast.error("An error occurred while sending Email");
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  getById: async (configId) => {
+    set({ isLoading: true });
+
+    try {
+      const response = await axios.post("/api/ip-port-config/getById", {
+        configId,
+      });
+      if (response.data.success) {
+        toast.success("config fetched successfully!");
+        return { success: true, IpConfigData: response.data.IpConfigData };
+      } else {
+        toast.error(response.data.message || "Failed to fetch config");
+        return { success: false };
+      }
+    } catch (error) {
+      console.error("Error fetching config:", error);
+      toast.error("An error occurred while fetching config");
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  updateConfiguration: async (configData) => {
+    set({ isLoading: true });
+
+    try {
+      const response = await axios.post(
+        "/api/ip-port-config/update",
+        configData
+      );
+      if (response.data.success) {
+        toast.success("config updated successfully!");
+
+        return response
+      } else {
+        toast.error(response.data.message || "Failed to update config");
+        return { success: false };
+      }
+    } catch (error) {
+      console.error("Error updating config:", error);
+      toast.error(error?.response?.data?.message);
     } finally {
       set({ isLoading: false });
     }

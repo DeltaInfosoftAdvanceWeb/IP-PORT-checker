@@ -10,7 +10,7 @@ import useIPPortStore from "@/store/useIPPortStore";
 
 import logo from "../../public/logo.png";
 import axios from "axios";
-import toast from "react-hot-toast";
+import { toast, Toaster } from "react-hot-toast";
 import { useState } from "react";
 import { Spin } from "antd";
 
@@ -45,7 +45,8 @@ export function Header() {
           <Spin size="large" />
         </div>
       )}
-      <header className="sticky top-0 z-30 w-full bg-white">
+      <Toaster position="bottom-right" />
+      <header className="sticky top-0 z-10 w-full bg-white">
         <div className="mx-auto px-2 sm:px-4 lg:px-8">
           <div className="flex h-16 sm:h-20 items-center justify-between gap-2">
             <div
