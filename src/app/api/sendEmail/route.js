@@ -6,13 +6,14 @@ import sendEmail from "../../../lib/sendEmail.js";
 const formatDateTime = (date) => {
   const d = new Date(date);
   const pad = (n) => n.toString().padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(
-    d.getDate()
-  )} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(
+    d.getHours()
+  )}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 };
 
 const sendEmailToUser = async (token, logs) => {
-  if (!token) return NextResponse.json({ success: false, message: "Token missing" });
+  if (!token)
+    return NextResponse.json({ success: false, message: "Token missing" });
 
   const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
   const { email, username } = decodedToken;
@@ -30,7 +31,9 @@ const sendEmailToUser = async (token, logs) => {
   const message = `
 Hi ${username || "User"},
 
-You requested an IP PORT configuration report on ${formatDateTime(requestedTime)}.
+You requested an IP PORT configuration report on ${formatDateTime(
+    requestedTime
+  )}.
 
 Here’s your configuration summary:
 
@@ -93,7 +96,9 @@ DeltaInfoSoft
             <tr>
               <td style="border: 1px solid #ddd; padding: 8px;">${r.ip}</td>
               <td style="border: 1px solid #ddd; padding: 8px;">${r.port}</td>
-              <td style="border: 1px solid #ddd; padding: 8px;">${r.referPortName || "custom"}</td>
+              <td style="border: 1px solid #ddd; padding: 8px;">${
+                r.referPortName || "custom"
+              }</td>
               <td style="border: 1px solid #ddd; padding: 8px;">${formatDateTime(
                 r.checkedAt
               )}</td>
@@ -133,9 +138,27 @@ DeltaInfoSoft
 export async function POST(req) {
   try {
     const token = req.cookies.get("authToken")?.value;
+    if (!token) {
+      return NextResponse.json(
+        { success: false, message: "Authentication required." },
+        { status: 401 }
+      );
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      return NextResponse.json(
+        { success: false, message: "Invalid or expired token." },
+        { status: 401 }
+      );
+    }
+
+    const userId = decoded.userId;
     const { sendMail } = await req.json();
 
-    const IPPortCheckedLogs = await IPPortCheckedLog.find({});
+    const IPPortCheckedLogs = await IPPortCheckedLog.find({ userId });
     if (!IPPortCheckedLogs || IPPortCheckedLogs.length === 0) {
       return NextResponse.json(
         { success: false, message: "No logs found." },
@@ -145,6 +168,10 @@ export async function POST(req) {
 
     if (sendMail === true) {
       await sendEmailToUser(token, IPPortCheckedLogs);
+      return NextResponse.json(
+        { success: true, message: "Email sent successfully." },
+        { status: 200 }
+      );
     }
 
     return NextResponse.json(

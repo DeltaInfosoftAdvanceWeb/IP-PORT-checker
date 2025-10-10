@@ -6,7 +6,7 @@ import useIPPortStore from "@/store/useIPPortStore";
 import { Popconfirm, Spin } from "antd";
 import { QuestionCircleOutlined } from "@ant-design/icons";
 import IPPortForm from "@/components/IPPortForm";
-
+import { Toaster } from "react-hot-toast";
 
 const Home = () => {
   const {
@@ -79,6 +79,8 @@ const Home = () => {
 
   return (
     <div className="min-h-screen bg-white p-2 sm:p-4 md:mx-8 md:my-1 px-6 md:px-16 lg:px-20">
+      <Toaster position="bottom-right" />
+
       {isLoading && (
         <div className="fixed inset-0 flex justify-center items-center bg-black bg-opacity-20 z-50 pointer-events-none">
           <Spin size="large" />
