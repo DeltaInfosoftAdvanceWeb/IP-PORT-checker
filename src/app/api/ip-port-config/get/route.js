@@ -23,7 +23,7 @@ export async function GET(req) {
     const userId = decoded.userId;
 
     // Get all configurations for this user
-    const configs = await IPPortConfig.find({ userId }).sort({ createdAt: -1 });
+    const configs = await IPPortConfig.find({}).sort({ createdAt: -1 });
 
     return NextResponse.json(
       {

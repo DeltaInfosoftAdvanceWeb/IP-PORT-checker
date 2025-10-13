@@ -36,7 +36,10 @@ const Home = () => {
 
   const [editingEntry, setEditingEntry] = useState(null);
   const [timeUntilNextCheck, setTimeUntilNextCheck] = useState(null);
-  let timer = 5;
+  const [nextRun, setNextRun] = useState(null);
+  const autoCheckRef = useRef(null);
+  const timer = 2; // auto-check interval in minutes
+
   const formatTime = (date) => {
     if (!date) return "-";
     const d = date instanceof Date ? date : new Date(date);
@@ -55,28 +58,22 @@ const Home = () => {
     return `${minutes}m ${seconds}s`;
   };
 
-  // Calculate next scheduled time (every 1 minute at :00 seconds)
+  // Calculate next scheduled time (aligned to nearest X-minute mark)
   const getNextCronTime = () => {
     const now = new Date();
-    const nextRun = new Date(now);
+    const next = new Date(now);
 
-    const currentMinutes = now.getMinutes();
-    const next5Min = Math.ceil(currentMinutes / 5) * 5;
+    const nextMinute = Math.ceil(now.getMinutes() / timer) * timer;
+    next.setMinutes(nextMinute, 0, 0);
 
-    nextRun.setMinutes(next5Min, 0, 0);
-    if (nextRun <= now) {
-      nextRun.setMinutes(nextRun.getMinutes() + 5, 0, 0);
+    if (next <= now) {
+      next.setMinutes(next.getMinutes() + timer);
     }
-
-    // nextRun.setMinutes(nextRun.getMinutes() + 1, 0, 0);
-    return nextRun;
+    return next;
   };
 
   useEffect(() => {
-    const init = async () => {
-      await fetchConfigurations();
-    };
-    init();
+    fetchConfigurations();
   }, []);
 
   const getStatusColor = (status) => {
@@ -130,102 +127,63 @@ const Home = () => {
     openModal();
   };
 
-  const countdownRef = useRef(null);
-  const autoCheckRef = useRef(null);
-
-  // Countdown timer that syncs with 1-minute intervals
+  // Countdown timer
   useEffect(() => {
     if (entries.length === 0) {
-      if (countdownRef.current) {
-        clearInterval(countdownRef.current);
-        countdownRef.current = null;
-      }
       setTimeUntilNextCheck(null);
       return;
     }
 
-    // Update countdown every second
+    const nextCron = getNextCronTime();
+    setNextRun(nextCron);
+
     const updateCountdown = () => {
-      const nextCron = getNextCronTime();
-      const timeLeft = nextCron.getTime() - Date.now();
-      setTimeUntilNextCheck(Math.max(0, timeLeft));
+      if (!nextRun) return;
+      const msLeft = nextRun.getTime() - Date.now();
+      setTimeUntilNextCheck(Math.max(0, msLeft));
     };
 
     updateCountdown();
-    countdownRef.current = setInterval(updateCountdown, 1000);
+    const interval = setInterval(updateCountdown, 1000);
 
-    return () => {
-      if (countdownRef.current) {
-        clearInterval(countdownRef.current);
-        countdownRef.current = null;
-      }
-    };
-  }, [entries.length]);
+    return () => clearInterval(interval);
+  }, [entries.length, nextRun]);
 
-  // Auto-check every 1 minute and send email
+  // Auto-check interval
   useEffect(() => {
-    if (entries.length === 0) {
-      if (autoCheckRef.current) {
-        clearInterval(autoCheckRef.current);
-        autoCheckRef.current = null;
-      }
-      return;
-    }
+    if (entries.length === 0) return;
 
-    // Function to perform auto-check with email
     const performAutoCheck = async () => {
-      console.log("🔄 Performing automatic 1-minute check with email...");
-
       try {
-        // Check all status
         await checkAllStatus();
 
-        // Send email after status check
         setTimeout(async () => {
           console.log("Sending automatic email notification...");
           await sendEmail();
         }, 2000); // Wait 2 seconds after check completes
-      } catch (error) {
-        console.error("Error in auto-check:", error);
+      } finally {
+        // Update next run for countdown
+        setNextRun(getNextCronTime());
       }
     };
 
-    // Calculate time until next minute boundary
-    const now = new Date();
-    const msUntilNextMinute =
-      (60 - now.getSeconds()) * 1000 - now.getMilliseconds();
+    if (!nextRun) return;
 
-    // Wait until the next minute boundary, then start interval
-    const initialTimeout = setTimeout(() => {
-      performAutoCheck(); // First check at minute boundary
+    const msUntilNextRun = nextRun.getTime() - Date.now();
 
-      // Then check every 5 min
-      autoCheckRef.current = setInterval(performAutoCheck, 5 * 60 * 1000); //5 * 60*1000
-    }, msUntilNextMinute);
+    const timeoutId = setTimeout(() => {
+      performAutoCheck();
+      autoCheckRef.current = setInterval(performAutoCheck, timer * 60 * 1000);
+    }, msUntilNextRun);
 
     return () => {
-      clearTimeout(initialTimeout);
-      if (autoCheckRef.current) {
-        clearInterval(autoCheckRef.current);
-        autoCheckRef.current = null;
-      }
+      clearTimeout(timeoutId);
+      if (autoCheckRef.current) clearInterval(autoCheckRef.current);
     };
-  }, [entries.length, checkAllStatus, sendEmail]);
-
-  // // Refresh data from server every 30 seconds to show latest updates
-  // useEffect(() => {
-  //   if (entries.length === 0) return;
-
-  //   const refreshInterval = setInterval(() => {
-  //     console.log("🔄 Refreshing data from server...");
-  //     fetchConfigurations();
-  //   }, 60000);
-
-  //   return () => clearInterval(refreshInterval);
-  // }, [entries.length, fetchConfigurations]);
+  }, [entries.length, nextRun, checkAllStatus]);
 
   const stats = getTotalStats();
-  const nextCronTime = getNextCronTime();
+  const nextCronTime = nextRun || getNextCronTime();
 
   return (
     <div className="min-h-screen bg-white">
@@ -274,7 +232,10 @@ const Home = () => {
                     <span className="sm:hidden">Email</span>
                   </button>
                   <button
-                    onClick={checkAllStatus}
+                    onClick={async () => {
+                      await checkAllStatus();
+                      setNextRun(getNextCronTime());
+                    }}
                     disabled={isChecking || entries.length === 0}
                     className="flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 bg-white/20 hover:bg-white/30 disabled:bg-white/10 text-white rounded-xl transition-all backdrop-blur-sm border border-white/30 font-medium text-sm sm:text-base"
                   >
@@ -473,23 +434,6 @@ const Home = () => {
                         </div>
 
                         <div className="flex lg:flex-col gap-2">
-                          {/* <button
-                            onClick={() =>
-                              checkSingleStatus(config._id, i, entry)
-                            }
-                            disabled={entry.status === "checking"}
-                            className="flex-1 lg:flex-none flex items-center justify-center gap-2 p-2.5 sm:p-3 text-blue-600 hover:text-blue-700 hover:bg-blue-100 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed border-2 border-transparent hover:border-blue-200"
-                            title="Refresh Status"
-                          >
-                            <RefreshCw
-                              className={`w-4 h-4 sm:w-5 sm:h-5 ${
-                                entry.status === "checking"
-                                  ? "animate-spin"
-                                  : ""
-                              }`}
-                            />
-                          </button> */}
-
                           <button
                             onClick={(e) => {
                               e.stopPropagation();

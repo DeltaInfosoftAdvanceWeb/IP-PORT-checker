@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { PlusCircle } from "lucide-react";
+import { PlusCircle, LogOut } from "lucide-react";
 import IPPortForm from "./IPPortForm";
 import { Button } from "@/components/ui/button";
 import { Label } from "./ui/label";
@@ -27,12 +27,11 @@ export function Header() {
     setIsLoading(true);
     try {
       await axios.get("/api/logout");
-      toast.success("Logout success");
+      toast.success("Logout successful");
       router.push("/login");
     } catch (error) {
-      console.log(error);
-
-      toast.error("Logout Failed");
+      console.error(error);
+      toast.error("Logout failed");
     } finally {
       setIsLoading(false);
     }
@@ -41,44 +40,57 @@ export function Header() {
   return (
     <>
       {isLoading && (
-        <div className="fixed inset-0 flex justify-center items-center bg-black bg-opacity-20 z-50 pointer-events-none">
+        <div className="fixed inset-0 flex justify-center items-center bg-black/20 backdrop-blur-sm z-50">
           <Spin size="large" />
         </div>
       )}
       <Toaster position="bottom-right" />
-      <header className=" w-full bg-white">
-        <div className="mx-auto px-2 sm:px-4 lg:px-8">
-          <div className="flex h-16 sm:h-20 items-center justify-between gap-2">
+
+      <header className="w-full rounded bg-white shadow-md">
+        <div className="mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex h-16 sm:h-20 items-center justify-between">
+            {/* Logo */}
             <div
-              className="flex items-center cursor-pointer flex-shrink-0"
               onClick={handleLogoClick}
+              className="flex items-center cursor-pointer flex-shrink-0 transition-transform hover:scale-105"
             >
               <Image
                 src={logo || "/placeholder.svg"}
                 alt="Grundfos Logo"
-                className="h-10 sm:h-12 md:h-14 w-auto mr-2 sm:mr-4"
+                className="h-10 sm:h-12 md:h-14 w-auto"
                 width={300}
                 height={40}
               />
             </div>
-            <div className="flex items-center gap-2 sm:gap-3 md:gap-4">
-              <Label className="hidden sm:block text-sm md:text-base font-semibold capitalize">
+
+            {/* Buttons */}
+            <div className="flex items-center gap-3 sm:gap-4">
+              <Label className="hidden sm:block text-sm md:text-base font-semibold text-gray-700">
                 Add IP/PORT
               </Label>
-              <Button className="rounded p-2 sm:px-4" onClick={openModal}>
-                <PlusCircle className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span className="hidden sm:inline ml-2">Add</span>
+
+              {/* Add IP Button */}
+              <Button
+                onClick={openModal}
+                className="flex items-center bg-[#1ca5b3] hover:bg-[#0e7c87] text-white rounded-lg shadow-sm px-3 sm:px-4 py-2 transition-all duration-200"
+              >
+                <PlusCircle className="w-4 h-4 sm:w-5 sm:h-5 mr-1" />
+                <span className="hidden sm:inline">Add</span>
               </Button>
+
+              {/* Logout Button */}
               <Button
                 onClick={handleLogout}
-                className="rounded bg-[#1ca5b3] hover:bg-[#13717b] text-white text-sm px-3 sm:px-4"
+                className="flex items-center bg-[#f87171] hover:bg-[#dc2626] text-white rounded-lg shadow-sm px-3 sm:px-4 py-2 transition-all duration-200"
               >
-                Logout
+                <LogOut className="w-4 h-4 sm:w-5 sm:h-5 mr-1" />
+                <span className="hidden sm:inline">Logout</span>
               </Button>
             </div>
           </div>
         </div>
       </header>
+
       {isModalOpen && <IPPortForm />}
     </>
   );
