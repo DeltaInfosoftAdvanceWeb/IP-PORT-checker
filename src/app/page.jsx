@@ -239,7 +239,7 @@ const Home = () => {
         </div>
       )}
 
-      <div className="container mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 max-w-7xl">
+      <div className="container mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 max-w-8xl">
         <Header />
 
         {/* Hero Section with Stats */}

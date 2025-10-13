@@ -7,7 +7,7 @@ const formatDateTime = (date, withTime = true) => {
   if (!date) return "-"
 
   try {
-    const date = new Date(date)
+    const dateObj = new Date(date)
     const options = {
       timeZone: "Asia/Kolkata",
       day: "2-digit",
@@ -21,7 +21,7 @@ const formatDateTime = (date, withTime = true) => {
       options.hour12 = false
     }
 
-    const formatted = date.toLocaleString("en-GB", options)
+    const formatted = dateObj.toLocaleString("en-GB", options)
     return formatted.replace(",", "").replace(/\s/g, " ")
   } catch (error) {
     console.error("Error formatting date:", error)
