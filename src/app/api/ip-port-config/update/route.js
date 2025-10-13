@@ -17,7 +17,7 @@ export async function POST(req) {
       );
     }
 
-    const { entries, configName, configId } = await req.json();
+    const { entries, configId, entryId } = await req.json();
 
     if (!entries || !Array.isArray(entries) || entries.length === 0) {
       return NextResponse.json(
@@ -29,11 +29,11 @@ export async function POST(req) {
       );
     }
 
-    if (!configName || !configId) {
+    if (!entryId || !configId) {
       return NextResponse.json(
         {
           success: false,
-          message: "ConfigName and Id both Required",
+          message: "entryId and configId both Required",
         },
         { status: 400 }
       );
@@ -43,6 +43,8 @@ export async function POST(req) {
       (entry) =>
         entry.ip &&
         entry.port &&
+        entry.referPortName &&
+        entry.referPortName.trim() !== "" &&
         entry.ip.trim() !== "" &&
         entry.port.trim() !== ""
     );
@@ -54,50 +56,30 @@ export async function POST(req) {
       );
     }
 
-    const portReferenceMap = {
-      80: "http",
-      443: "https",
-      21: "ftp",
-      22: "ssh",
-      25: "smtp",
-      110: "pop3",
-      143: "imap",
-      3306: "mysql",
-      5432: "postgresql",
-      6379: "redis",
-      27017: "mongodb",
-      5000: "local dev",
-      8000: "dev server",
-    };
-
-    const cleanedEntries = entries.map(({ ip, port }) => {
-      const trimmedPort = port.trim();
-      const referPortName = portReferenceMap[trimmedPort] || "custom";
-      return {
-        ip: ip.trim(),
-        port: trimmedPort,
-        referPortName,
-      };
-    });
-
-    const updateConfig = await IPPortConfig.findByIdAndUpdate(
-      configId,
+    const updateConfig = await IPPortConfig.findOneAndUpdate(
+      { _id: configId, "entries._id": entryId },
       {
         $set: {
-          configName,
-          entries: cleanedEntries,
+          "entries.$.ip": entries[0].ip,
+          "entries.$.port": entries[0].port,
+          "entries.$.referPortName": entries[0].referPortName,
         },
       },
       { new: true }
     );
 
-    console.log("updateConfig", updateConfig);
+    if (!updateConfig) {
+      return NextResponse.json(
+        { success: false, message: "Entry not found or failed to update" },
+        { status: 404 }
+      );
+    }
 
     return NextResponse.json(
       {
         success: true,
         message: "Ip/Port updated successfully",
-        updateConfig,
+        updateConfig
       },
       { status: 201 }
     );

@@ -46,7 +46,7 @@ export function Header() {
         </div>
       )}
       <Toaster position="bottom-right" />
-      <header className="sticky top-0 z-10 w-full bg-white">
+      <header className=" w-full bg-white">
         <div className="mx-auto px-2 sm:px-4 lg:px-8">
           <div className="flex h-16 sm:h-20 items-center justify-between gap-2">
             <div

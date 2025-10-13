@@ -37,7 +37,7 @@ export async function POST(req) {
     const userId = decoded.userId;
 
     // Parse request body
-    const { entries, configName } = await req.json();
+    const { entries } = await req.json();
 
     // Validate entries
     if (!entries || !Array.isArray(entries) || entries.length === 0) {
@@ -55,6 +55,8 @@ export async function POST(req) {
       (entry) =>
         entry.ip &&
         entry.port &&
+        entry.referPortName &&
+        entry.referPortName.trim() !== "" &&
         entry.ip.trim() !== "" &&
         entry.port.trim() !== ""
     );
@@ -69,39 +71,37 @@ export async function POST(req) {
       );
     }
 
-    const portReferenceMap = {
-      80: "http",
-      443: "https",
-      21: "ftp",
-      22: "ssh",
-      25: "smtp",
-      110: "pop3",
-      143: "imap",
-      3306: "mysql",
-      5432: "postgresql",
-      6379: "redis",
-      27017: "mongodb",
-      5000: "local dev",
-      8000: "dev server",
-    };
+    // const portReferenceMap = {
+    //   80: "http",
+    //   443: "https",
+    //   21: "ftp",
+    //   22: "ssh",
+    //   25: "smtp",
+    //   110: "pop3",
+    //   143: "imap",
+    //   3306: "mysql",
+    //   5432: "postgresql",
+    //   6379: "redis",
+    //   27017: "mongodb",
+    //   5000: "local dev",
+    //   8000: "dev server",
+    // };
 
     // Clean and enrich entries
-    const cleanedEntries = entries.map(({ ip, port }) => {
-      const trimmedPort = port.trim();
-      const referPortName =
-        portReferenceMap[trimmedPort] || "custom"; 
-      return {
-        ip: ip.trim(),
-        port: trimmedPort,
-        referPortName,
-      };
-    });
+    // const cleanedEntries = entries.map(({ ip, port }) => {
+    //   const trimmedPort = port.trim();
+    //   const referPortName = portReferenceMap[trimmedPort] || "custom";
+    //   return {
+    //     ip: ip.trim(),
+    //     port: trimmedPort,
+    //     referPortName,
+    //   };
+    // });
 
     // Create new IP/Port configuration
     const newConfig = new IPPortConfig({
       userId,
-      entries: cleanedEntries,
-      configName: configName || "Default Configuration",
+      entries,
     });
 
     await newConfig.save();
@@ -114,7 +114,6 @@ export async function POST(req) {
           configId: newConfig._id,
           userId: newConfig.userId,
           entries: newConfig.entries,
-          configName: newConfig.configName,
           createdAt: newConfig.createdAt,
         },
       },

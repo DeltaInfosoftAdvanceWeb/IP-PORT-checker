@@ -5,11 +5,9 @@ import React, { useEffect, useState } from "react";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 import useIPPortStore from "@/store/useIPPortStore";
-import { Label } from "./ui/label";
 import { toast, Toaster } from "react-hot-toast";
-import axios from "axios";
 
-const IPPortForm = ({ configId, isEditing, setIsEditing }) => {
+const IPPortForm = ({ configId, entryId }) => {
   const {
     closeModal,
     addConfiguration,
@@ -18,13 +16,20 @@ const IPPortForm = ({ configId, isEditing, setIsEditing }) => {
     fetchConfigurations,
     getById,
     updateConfiguration,
+    closeEdit,
+    isEditing,
   } = useIPPortStore();
-  const [entries, setEntries] = useState([{ id: "1", ip: "", port: "" }]);
-  const [configName, setConfigName] = useState("");
+  
+  const [entries, setEntries] = useState([
+    { id: "1", ip: "", port: "", referPortName: "" },
+  ]);
   const [nextId, setNextId] = useState(2);
 
   const addEntry = () => {
-    setEntries([...entries, { id: nextId, ip: "", port: "" }]);
+    setEntries([
+      ...entries,
+      { id: nextId, ip: "", port: "", referPortName: "" },
+    ]);
     setNextId(nextId + 1);
   };
 
@@ -74,12 +79,13 @@ const IPPortForm = ({ configId, isEditing, setIsEditing }) => {
             const [ip, port] = trimmedLine.includes(":")
               ? trimmedLine.split(":").map((s) => s.trim())
               : [trimmedLine, ""];
-            newEntries.push({ id: nextId + index - 1, ip, port });
+            newEntries.push({ id: nextId + index - 1, ip, port, referPortName: "" });
           } else {
             newEntries.push({
               id: nextId + index - 1,
               ip: "",
               port: trimmedLine,
+              referPortName: "",
             });
           }
         }
@@ -98,12 +104,16 @@ const IPPortForm = ({ configId, isEditing, setIsEditing }) => {
 
   const handleSubmit = async () => {
     const result = await addConfiguration({
-      entries: entries.map(({ ip, port }) => ({ ip, port })),
-      configName,
+      entries: entries.map(({ ip, port, referPortName }) => ({
+        ip,
+        port,
+        referPortName,
+      })),
     });
 
     if (result.success) {
-      setEntries([{ id: "1", ip: "", port: "" }]);
+      toast.success("Configuration saved successfully!");
+      setEntries([{ id: "1", ip: "", port: "", referPortName: "" }]);
       setNextId(2);
       checkAllStatus();
     }
@@ -111,45 +121,62 @@ const IPPortForm = ({ configId, isEditing, setIsEditing }) => {
 
   const handleUpdate = async () => {
     try {
-      const {data} = await updateConfiguration({
-        entries: entries.map(({ ip, port }) => ({ ip, port })),
-        configName,
+      const { data } = await updateConfiguration({
+        entries: entries.map(({ ip, port, referPortName }) => ({
+          ip,
+          port,
+          referPortName,
+        })),
         configId,
+        entryId,
       });
 
       if (data.success) {
-        toast.success(data.message)
-        setIsEditing(false);
+        toast.success(data.message);
         fetchConfigurations();
         checkAllStatus();
-        setEntries("");
-        setConfigName("");
+        setEntries([{ id: "1", ip: "", port: "", referPortName: "" }]);
+        setNextId(2);
+        closeEdit();
+        closeModal();
       }
     } catch (error) {
-      console.log("error",error);
+      console.log("error", error);
     }
+  };
+
+  const handleClose = () => {
+    setEntries([{ id: "1", ip: "", port: "", referPortName: "" }]);
+    setNextId(2);
+    closeEdit();
+    closeModal();
   };
 
   useEffect(() => {
     const fetchConfigData = async () => {
-      const response = await getById(configId);
-
-      if (response.success) {
-        setConfigName(response?.IpConfigData?.configName);
-        setEntries(response?.IpConfigData?.entries);
+      if (isEditing && configId && entryId) {
+        const response = await getById(configId, entryId);
+        
+        if (response.success && response.IpConfigData) {
+          toast.success("Ip config fetched successfully")
+          setEntries([
+            {
+              ...response.IpConfigData,
+              id: response.IpConfigData._id?.toString() || "1",
+            },
+          ]);
+        }
       }
     };
 
-    if (isEditing && configId) {
-      fetchConfigData();
-    }
-  }, [configId]);
+    fetchConfigData();
+  }, [configId, entryId, isEditing]);
 
   return (
     <>
       <Toaster position="bottom-right" />
 
-      <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/20  p-4 overflow-y-auto">
+      <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/20 p-4 overflow-y-auto">
         <div className="bg-gray-50 p-4 sm:p-6 rounded-md w-full max-w-2xl lg:max-w-4xl my-4">
           <div className="mx-auto">
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
@@ -164,74 +191,86 @@ const IPPortForm = ({ configId, isEditing, setIsEditing }) => {
               </div>
 
               <div className="space-y-3">
-                <div>
-                  <Label>Config Name:</Label>
-                  <Input
-                    type="text"
-                    onChange={(e) => setConfigName(e.target.value)}
-                    value={configName}
-                    className="rounded outline-none w-full"
-                  />
-                </div>
-                <div className="hidden sm:grid grid-cols-12 gap-3 text-xs font-medium text-gray-500 uppercase tracking-wide pb-2">
-                  <div className="col-span-5">IP Address</div>
-                  <div className="col-span-5">Port</div>
-                  <div className="col-span-2"></div>
-                </div>
-                {entries.map((ent, i) => (
-                  <div
-                    key={ent.id}
-                    className="grid grid-cols-1 sm:grid-cols-12 gap-2 sm:gap-3 items-center group"
-                  >
-                    <div className="sm:col-span-5">
-                      <label className="block sm:hidden text-xs font-medium text-gray-500 mb-1">
-                        IP Address
-                      </label>
-                      <Input
-                        type="text"
-                        value={ent.ip}
-                        onChange={(e) =>
-                          updateEntry(ent.id, "ip", e.target.value)
-                        }
-                        onPaste={(e) => handlePaste(e, ent.id, "ip")}
-                        placeholder="192.168.1.1 or paste multiple"
-                        className="rounded outline-none w-full"
-                      />
-                    </div>
-                    <div className="sm:col-span-5">
-                      <label className="block sm:hidden text-xs font-medium text-gray-500 mb-1">
-                        Port
-                      </label>
-                      <Input
-                        type="text"
-                        value={ent.port}
-                        onChange={(e) =>
-                          updateEntry(ent.id, "port", e.target.value)
-                        }
-                        placeholder="3000 or paste multiple"
-                        onPaste={(e) => handlePaste(e, ent.id, "port")}
-                        className="rounded outline-none w-full"
-                      />
-                    </div>
-                    <div className="sm:col-span-2 flex justify-end sm:justify-end">
-                      {!isEditing && (
-                        <Button
-                          type="button"
-                          className={`${
-                            entries.length === 1
-                              ? "cursor-not-allowed"
-                              : "text-white bg-red-600 hover:bg-red-400"
-                          } w-full sm:w-auto`}
-                          disabled={entries.length === 1}
-                          onClick={() => removeEntry(ent.id)}
-                        >
-                          <X size={18} />
-                          <span className="sm:hidden ml-2">Remove</span>
-                        </Button>
-                      )}
-                    </div>
+                <div className="space-y-3 my-8 border rounded border-gray-200 py-6 px-3">
+                  <div className="hidden sm:grid grid-cols-12 gap-3 text-xs font-medium text-gray-500 uppercase tracking-wide pb-2">
+                    <div className="col-span-4">IP Address</div>
+                    <div className="col-span-4">Port</div>
+                    <div className="col-span-3">Refer Port Name</div>
+                    <div className="col-span-1"></div>
                   </div>
-                ))}
+                  {entries.map((ent) => (
+                    <div
+                      key={ent.id}
+                      className="grid grid-cols-1 sm:grid-cols-12 gap-2 sm:gap-3 items-center group"
+                    >
+                      <div className="sm:col-span-4">
+                        <label className="block sm:hidden text-xs font-medium text-gray-500 mb-1">
+                          IP Address
+                        </label>
+                        <Input
+                          type="text"
+                          value={ent.ip}
+                          onChange={(e) =>
+                            updateEntry(ent.id, "ip", e.target.value)
+                          }
+                          onPaste={(e) => handlePaste(e, ent.id, "ip")}
+                          placeholder="192.168.1.1 or paste multiple"
+                          className="rounded outline-none w-full"
+                        />
+                      </div>
+                      <div className="sm:col-span-4">
+                        <label className="block sm:hidden text-xs font-medium text-gray-500 mb-1">
+                          Port
+                        </label>
+                        <Input
+                          type="text"
+                          value={ent.port}
+                          onChange={(e) =>
+                            updateEntry(ent.id, "port", e.target.value)
+                          }
+                          placeholder="3000 or paste multiple"
+                          onPaste={(e) => handlePaste(e, ent.id, "port")}
+                          className="rounded outline-none w-full"
+                        />
+                      </div>
+                      <div className="sm:col-span-3">
+                        <label className="block sm:hidden text-xs font-medium text-gray-500 mb-1">
+                          Refer Port Name
+                        </label>
+                        <Input
+                          type="text"
+                          value={ent.referPortName}
+                          onChange={(e) => {
+                            updateEntry(
+                              ent.id,
+                              "referPortName",
+                              e.target.value
+                            );
+                          }}
+                          placeholder="postgres"
+                          className="rounded outline-none w-full"
+                        />
+                      </div>
+                      <div className="sm:col-span-1 flex justify-end sm:justify-end">
+                        {!isEditing && (
+                          <Button
+                            type="button"
+                            className={`${
+                              entries.length === 1
+                                ? "cursor-not-allowed"
+                                : "text-white bg-red-600 hover:bg-red-400"
+                            } w-full sm:w-auto`}
+                            disabled={entries.length === 1}
+                            onClick={() => removeEntry(ent.id)}
+                          >
+                            <X size={18} />
+                            <span className="sm:hidden ml-2">Remove</span>
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
                 {!isEditing && (
                   <Button
                     type="button"
@@ -245,10 +284,7 @@ const IPPortForm = ({ configId, isEditing, setIsEditing }) => {
 
                 <div className="pt-4 sm:pt-6 border-t border-gray-200 mt-4 sm:mt-6 flex flex-col sm:flex-row items-center gap-3 sm:gap-4 justify-between">
                   <Button
-                    onClick={() => {
-                      closeModal();
-                      setIsEditing(false);
-                    }}
+                    onClick={handleClose}
                     className="w-full bg-transparent text-black hover:bg-gray-100"
                     disabled={isLoading}
                   >

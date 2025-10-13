@@ -47,12 +47,7 @@ const ipPortConfigSchema = new mongoose.Schema(
         },
         message: "At least one IP/Port entry is required",
       },
-    },
-    configName: {
-      type: String,
-      trim: true,
-      default: "Default Configuration",
-    },
+    }
   },
   {
     timestamps: true,

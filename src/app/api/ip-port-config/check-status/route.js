@@ -1,8 +1,11 @@
+// app/api/ip-port-config/check-status/route.js
 import { NextResponse } from "next/server";
 import net from "net";
-import IPPortCheckedLog from "@/modals/checkedLogSchema";
 import IPPortConfig from "@/modals/ipPortConfigSchema";
+import { connectToDatabase } from "../../../../../dbConfig";
+import IPPortCheckedLog from "@/modals/checkedLogSchema";
 import jwt from "jsonwebtoken";
+import axios from "axios";
 
 function checkPort(ip, port, timeout = 3000) {
   return new Promise((resolve) => {
@@ -38,15 +41,14 @@ function checkPort(ip, port, timeout = 3000) {
 
 export async function POST(req) {
   try {
-    // Extract JWT token for identifying user
+    // Verify authentication
     const token = req.cookies.get("authToken")?.value;
     if (!token) {
       return NextResponse.json(
-        { success: false, message: "Authentication required." },
+        { success: false, message: "Unauthorized" },
         { status: 401 }
       );
     }
-
     let decoded;
     try {
       decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -58,7 +60,8 @@ export async function POST(req) {
     }
 
     const userId = decoded.userId;
-    const { entries } = await req.json();
+    const body = await req.json();
+    const { entries, sendEmailNotification = false } = body; // Add email flag
 
     if (!entries || !Array.isArray(entries) || entries.length === 0) {
       return NextResponse.json(
@@ -67,17 +70,23 @@ export async function POST(req) {
       );
     }
 
-    // Check all IPs/Ports in parallel
+    await connectToDatabase();
+
+    console.log(
+      `🔍 Checking status for ${entries.length} ${
+        entries.length === 1 ? "entry" : "entries"
+      }...`
+    );
+
+    // Check all entries in parallel
     const checkPromises = entries.map(async (entry) => {
-      const { ip, port, configId, _id: entryId, referPortName } = entry;
+      const { ip, port, configId, _id: entryId } = entry;
 
       if (!ip || !port) {
         return {
           ip,
           port,
-          referPortName: referPortName || "custom",
           status: "invalid",
-          message: "Invalid IP or Port",
           responseTime: null,
         };
       }
@@ -85,59 +94,64 @@ export async function POST(req) {
       try {
         const result = await checkPort(ip, parseInt(port));
 
-        // Update nested entry inside parent config
-        await IPPortConfig.updateOne(
-          { _id: configId, "entries._id": entryId },
-          {
-            $set: {
-              "entries.$.status": result.status,
-              "entries.$.responseTime": result.responseTime,
-              "entries.$.checkedAt": new Date(),
-            },
-          }
+        // Update the entry in database if configId and entryId are provided
+        if (configId && entryId) {
+          await IPPortConfig.updateOne(
+            { _id: configId, "entries._id": entryId },
+            {
+              $set: {
+                "entries.$.status": result.status,
+                "entries.$.responseTime": result.responseTime,
+                "entries.$.checkedAt": new Date(),
+              },
+            }
+          );
+        }
+
+        console.log(
+          `  ✓ ${ip}:${port} - ${result.status} ${
+            result.responseTime ? `(${result.responseTime}ms)` : ""
+          }`
         );
 
         return {
           ip,
           port,
-          referPortName: referPortName || "custom",
           status: result.status,
           responseTime: result.responseTime,
-          message:
-            result.status === "online"
-              ? "Connected"
-              : result.status === "timeout"
-              ? "Connection timeout"
-              : "Connection refused",
           checkedAt: new Date(),
+          referPortName: entry.referPortName || "N/A",
         };
       } catch (error) {
-        await IPPortConfig.updateOne(
-          { _id: configId, "entries._id": entryId },
-          {
-            $set: {
-              "entries.$.status": "error",
-              "entries.$.responseTime": null,
-              "entries.$.checkedAt": new Date(),
-            },
-          }
-        );
+        console.error(`  ✗ ${ip}:${port} - error:`, error.message);
+
+        // Update with error status if configId and entryId are provided
+        if (configId && entryId) {
+          await IPPortConfig.updateOne(
+            { _id: configId, "entries._id": entryId },
+            {
+              $set: {
+                "entries.$.status": "error",
+                "entries.$.responseTime": null,
+                "entries.$.checkedAt": new Date(),
+              },
+            }
+          );
+        }
 
         return {
           ip,
           port,
-          referPortName: referPortName || "custom",
           status: "error",
-          message: error.message,
           responseTime: null,
           checkedAt: new Date(),
+          referPortName: entry.referPortName || "N/A",
         };
       }
     });
 
     const results = await Promise.all(checkPromises);
 
-    //  Upsert user-specific log document (only one per user)
     await IPPortCheckedLog.findOneAndUpdate(
       { userId },
       {
@@ -153,21 +167,56 @@ export async function POST(req) {
           updatedAt: new Date(),
         },
       },
-      { upsert: true, new: true } 
+      { upsert: true, new: true }
     );
+
+    const summary = {
+      total: results.length,
+      online: results.filter((r) => r.status === "online").length,
+      offline: results.filter((r) => r.status === "offline").length,
+      timeout: results.filter((r) => r.status === "timeout").length,
+      error: results.filter((r) => r.status === "error").length,
+    };
+
+    console.log(
+      `Summary: ${summary.online} online, ${summary.offline} offline, ${summary.timeout} timeout, ${summary.error} error`
+    );
+
+    // // Send email if requested
+    if (sendEmailNotification) {
+      try {
+        // Call your email API endpoint
+        const emailResponse = await axios(
+          `${
+            process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
+          }/api/sendEmail`,
+          {
+            results,
+            summary,
+          }
+        );
+
+        if (!emailResponse.ok) {
+          console.error("Failed to send email notification");
+        } else {
+          console.log("✉️ Email notification sent successfully");
+        }
+      } catch (emailError) {
+        console.error("Error sending email:", emailError);
+      }
+    }
 
     return NextResponse.json(
       {
         success: true,
+        message: "Status check completed",
         results,
-        totalChecked: results.length,
-        online: results.filter((r) => r.status === "online").length,
-        offline: results.filter((r) => r.status === "offline").length,
+        summary,
       },
       { status: 200 }
     );
   } catch (error) {
-    console.error("Error checking IP/Port status:", error);
+    console.error(" Error in check-status API:", error);
     return NextResponse.json(
       {
         success: false,
