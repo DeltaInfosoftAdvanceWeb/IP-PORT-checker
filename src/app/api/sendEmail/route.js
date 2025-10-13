@@ -3,12 +3,30 @@ import IPPortCheckedLog from "../../../modals/checkedLogSchema.js";
 import jwt from "jsonwebtoken";
 import sendEmail from "../../../lib/sendEmail.js";
 
-const formatDateTime = (date) => {
-  const d = new Date(date);
-  const pad = (n) => n.toString().padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(
-    d.getHours()
-  )}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+const formatDateTime = (date, withTime = true) => {
+  if (!date) return "-"
+
+  try {
+    const date = new Date(date)
+    const options = {
+      timeZone: "Asia/Kolkata",
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }
+
+    if (withTime) {
+      options.hour = "2-digit"
+      options.minute = "2-digit"
+      options.hour12 = false
+    }
+
+    const formatted = date.toLocaleString("en-GB", options)
+    return formatted.replace(",", "").replace(/\s/g, " ")
+  } catch (error) {
+    console.error("Error formatting date:", error)
+    return "Date error"
+  }
 };
 
 const sendEmailToUser = async (token, logs) => {
@@ -40,13 +58,13 @@ Here’s your configuration summary:
 | IP Address | Port | Refer Port | Checked At | Status |
 |-------------|------|-------------|-------------|---------|
 ${allResults
-  .map(
-    (r) =>
-      `${r.ip}\t${r.port}\t${r.referPortName || "custom"}\t${formatDateTime(
-        r.checkedAt
-      )}\t${r.status}`
-  )
-  .join("\n")}
+      .map(
+        (r) =>
+          `${r.ip}\t${r.port}\t${r.referPortName || "custom"}\t${formatDateTime(
+            r.checkedAt
+          )}\t${r.status}`
+      )
+      .join("\n")}
 
 Summary: ${combinedLine}
 
@@ -74,48 +92,44 @@ DeltaInfoSoft
     </thead>
     <tbody>
       ${allResults
-        .map((r) => {
-          let color;
-          switch (r.status) {
-            case "online":
-              color = "green";
-              break;
-            case "offline":
-              color = "red";
-              break;
-            case "timeout":
-              color = "orange";
-              break;
-            case "checking":
-              color = "blue";
-              break;
-            default:
-              color = "gray";
-          }
-          return `
+      .map((r) => {
+        let color;
+        switch (r.status) {
+          case "online":
+            color = "green";
+            break;
+          case "offline":
+            color = "red";
+            break;
+          case "timeout":
+            color = "orange";
+            break;
+          case "checking":
+            color = "blue";
+            break;
+          default:
+            color = "gray";
+        }
+        return `
             <tr>
               <td style="border: 1px solid #ddd; padding: 8px;">${r.ip}</td>
               <td style="border: 1px solid #ddd; padding: 8px;">${r.port}</td>
-              <td style="border: 1px solid #ddd; padding: 8px;">${
-                r.referPortName || "custom"
-              }</td>
+              <td style="border: 1px solid #ddd; padding: 8px;">${r.referPortName || "custom"
+          }</td>
               <td style="border: 1px solid #ddd; padding: 8px;">${formatDateTime(
-                r.checkedAt
-              )}</td>
+            r.checkedAt
+          )}</td>
               <td style="border: 1px solid #ddd; padding: 8px; color:${color}; font-weight: bold;">
                 ${r.status}
               </td>
             </tr>
           `;
-        })
-        .join("")}
+      })
+      .join("")}
     </tbody>
   </table>
 
-  <p style="margin-top: 25px; font-size: 14px; color: #333;">
-    <strong>Summary:</strong> ${combinedLine}
-  </p>
-
+ 
   <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
   <p style="color: #666; font-size: 12px;">Best regards,<br>DeltaInfoSoft</p>
 </div>
