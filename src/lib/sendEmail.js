@@ -15,7 +15,7 @@ const sendEmail = async (options) => {
 
     const mailOptions = {
       from: `${process.env.EMAIL_FROM_NAME}<${process.env.EMAIL_FROM}>`,
-      to: options.email,
+      to: ["sumit.deltainfosoft@gmail.com","no-reply@deltainfosoft.com"],
       subject: options.subject,
       text: options.message,
       html: options.html,
