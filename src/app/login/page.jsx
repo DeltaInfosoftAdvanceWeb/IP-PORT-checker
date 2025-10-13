@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -8,7 +8,6 @@ import { Loader2, Eye, EyeOff } from "lucide-react";
 import { toast, Toaster } from "react-hot-toast";
 import { useRouter } from "next/navigation";
 import axios from "axios";
-
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,20 +19,18 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Spin } from "antd";
-
+import Image from "next/image";
 
 const formSchema = z.object({
-  email: z.string().min(1, "Employee ID is required"),
+  email: z.string().min(1, "Email is required"),
   password: z.string().min(4, "Password must be at least 4 characters"),
 });
 
-
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
-
-  const router = useRouter();
   const [loaderText, setLoaderText] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const router = useRouter();
 
   const form = useForm({
     resolver: zodResolver(formSchema),
@@ -47,20 +44,17 @@ export default function LoginPage() {
     setIsLoading(true);
     try {
       setLoaderText("Logging in...");
-
       const response = await axios.post("/api/login", values);
-
       if (response.data.status === 200) {
         toast.success("Login successful");
         router.push("/");
       } else {
-        if (response.data.message == "User not found") {
-          toast.error("User Not Found, Request accesss");
+        if (response.data.message === "User not found") {
+          toast.error("User not found, please sign up first");
           router.push("/signup");
-        }
+        } else toast.error("Invalid credentials");
       }
     } catch (error) {
-      console.error("Login error:", error);
       toast.error("Login failed. Please try again.");
     } finally {
       setIsLoading(false);
@@ -69,106 +63,111 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen  flex items-center justify-center bg-gradient-to-b from-[#1ca5b3] to-white p-4">
+    <div className="min-h-screen bg-gradient-to-br from-[#1ca5b3] to-[#0e7c87] flex items-center justify-center p-6">
       <Toaster position="bottom-right" />
       {isLoading && (
-        <div className="fixed inset-0 flex justify-center items-center bg-black bg-opacity-20 z-50 pointer-events-none">
+        <div className="fixed inset-0 flex justify-center items-center bg-black/20 backdrop-blur-sm z-50">
           <Spin size="large" />
         </div>
       )}
-      <div className="w-full flex justify-center items-center">
-        <div className="rounded-3xl p-8 shadow-2xl bg-gradient-to-b from-[#1ca5b3]  to-white  text-white w-[500px] py-10">
-          <h1 className="text-2xl font-semibold text-white mb-6">Login</h1>
-          {/* <Image src={"/logo.png"} width={500} height={400} alt="Logo" className="mix-blend-darker" /> */}
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-white">Email</FormLabel>
-                    <FormControl>
+
+      <div className="bg-white rounded-3xl shadow-2xl p-10 w-full max-w-md">
+        {/* Logo section */}
+        <div className="flex justify-center mb-6">
+          <Image
+            src="/logo.png"
+            alt="Logo"
+            width={160}
+            height={80}
+            className="object-contain"
+          />
+        </div>
+
+        <h1 className="text-3xl font-bold text-center text-[#0e7c87] mb-2">
+          Welcome Back
+        </h1>
+        <p className="text-gray-500 text-center mb-8">
+          Log in to your monitoring dashboard
+        </p>
+
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="email"
+                      placeholder="Enter your email"
+                      className="rounded-lg border-gray-300"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Password</FormLabel>
+                  <FormControl>
+                    <div className="relative">
                       <Input
-                        placeholder="Enter your email"
-                        className="rounded  bg-white border-gray-300 text-black"
+                        type={showPassword ? "text" : "password"}
+                        placeholder="Enter your password"
+                        className="rounded-lg border-gray-300 pr-10"
                         {...field}
                       />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                      <button
+                        type="button"
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                        onClick={() => setShowPassword(!showPassword)}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-5 w-5 text-[#1ca5b3]" />
+                        ) : (
+                          <Eye className="h-5 w-5 text-[#1ca5b3]" />
+                        )}
+                      </button>
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-white">Password</FormLabel>
-                    <FormControl>
-                      <div className="relative">
-                        <Input
-                          type={showPassword ? "text" : "password"}
-                          className="rounded bg-white text-black border-gray-300 pr-10"
-                          placeholder="Enter your password"
-                          {...field}
-                        />
-                        <button
-                          type="button"
-                          className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                          onClick={() => setShowPassword(!showPassword)}
-                        >
-                          {showPassword ? (
-                            <EyeOff className="h-5 w-5 text-[#16808c]" />
-                          ) : (
-                            <Eye className="h-5 w-5 text-[#16808c]" />
-                          )}
-                        </button>
-                      </div>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <Button
-                type="button"
-                variant="link"
-                className="text-[#1ca5b3] hover:text-[#16808c] p-0 h-auto font-normal"
-              >
-                Forgot Password?
-              </Button>
-
-              <Button
-                type="submit"
-                className="w-full bg-[#1ca5b3] text-white hover:bg-[#16808c] rounded"
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    {loaderText}
-                  </>
-                ) : (
-                  "Log In"
-                )}
-              </Button>
-            </form>
-          </Form>
-          <p className="mt-3 text-center text-black text-sm">
-            Don’t have an account yet?{" "}
             <Button
-              variant="link"
-              onClick={() => {
-                router.push("/signup");
-              }}
-              className="font-medium text-[#1ca5b3] hover:text-[#16808c]"
+              type="submit"
+              className="w-full bg-[#1ca5b3] hover:bg-[#0e7c87] text-white font-medium rounded-lg py-2"
+              disabled={isLoading}
             >
-              Sign up now
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> {loaderText}
+                </>
+              ) : (
+                "Log In"
+              )}
             </Button>
-          </p>
-        </div>
+          </form>
+        </Form>
+
+        <p className="text-center text-sm text-gray-500 mt-4">
+          Don’t have an account?{" "}
+          <button
+            className="text-[#1ca5b3] hover:text-[#0e7c87] font-medium"
+            onClick={() => router.push("/signup")}
+          >
+            Sign up
+          </button>
+        </p>
       </div>
     </div>
   );
