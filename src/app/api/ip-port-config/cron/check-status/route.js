@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import net from "net";
 import IPPortConfig from "../../../../../modals/ipPortConfigSchema.js";
-import { connectToDatabase } from "../../../../../../dbConfig.js";
+import { connectToDatabase } from "../../../../../../dbConfig.ts";
 import IPPortCheckedLog from "../../../../../modals/checkedLogSchema.js";
 import sendEmail from "../../../../../lib/sendEmail.js"; // make sure this exists
 
