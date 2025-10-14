@@ -199,7 +199,7 @@ export async function GET(request) {
           );
 
           // Send email if offline
-          if (result.status === "offline") {
+          if (result.status === "offline" || result.status ==="timeout") {
             const logData = await IPPortCheckedLog.findOne({ entryId });
             await sendOfflineEmail(entry, logData);
           }
