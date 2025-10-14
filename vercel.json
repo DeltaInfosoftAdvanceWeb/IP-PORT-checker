@@ -1,8 +1,8 @@
 {
-    "crons": [
-      {
-        "path": "/api/emailReport",
-        "schedule": "0 19 * * *"
-      }
-    ]
-  }
+  "crons": [
+    {
+      "path": "/api/ip-port-config/cron/check-status",
+      "schedule": "*/59 * * * *"
+    }
+  ]
+}
