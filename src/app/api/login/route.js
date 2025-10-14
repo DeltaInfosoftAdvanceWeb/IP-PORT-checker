@@ -35,10 +35,13 @@ export async function POST(req) {
     const isValidPass = await bcrypt.compare(password, existingUser.password);
 
     if (!isValidPass) {
-      return NextResponse.json({sucess:false,message:"Incorrect Password"});
+      return NextResponse.json({
+        sucess: false,
+        message: "Incorrect Password",
+      });
     }
 
-    const tokenExpiry = 45 * 60;
+    const tokenExpiry = 7 * 24 * 60 * 60 * 1000;
 
     const token = jwt.sign(
       {

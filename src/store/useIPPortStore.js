@@ -9,7 +9,7 @@ const useIPPortStore = create((set, get) => ({
   isModalOpen: false,
   isLoading: false,
   isEditing: false,
-  checkingEntries: new Set(), // Track which entries are being checked
+  checkingEntries: new Set(),
 
   // Modal Actions
   openModal: () => set({ isModalOpen: true }),
@@ -19,20 +19,13 @@ const useIPPortStore = create((set, get) => ({
   openEdit: () => set({ isEditing: true }),
   closeEdit: () => set({ isEditing: false }),
 
-  // Fetch all IP/Port configurations for current user
+  // Fetch all IP/Port configurations
   fetchConfigurations: async (silent = false) => {
-    // Don't fetch if currently checking status
-    if (get().isChecking) {
-      return;
-    }
+    if (get().isChecking) return;
 
-    if (!silent) {
-      set({ isLoading: true });
-    }
-
+    if (!silent) set({ isLoading: true });
     try {
       const { data } = await axios.get("/api/ip-port-config/get");
-
       if (data.success) {
         set({
           entries: data.data.filter(
@@ -43,13 +36,9 @@ const useIPPortStore = create((set, get) => ({
       }
     } catch (error) {
       console.error("Error fetching configurations:", error);
-      if (!silent) {
-        toast.error("Failed to fetch configurations");
-      }
+      if (!silent) toast.error("Failed to fetch configurations");
     } finally {
-      if (!silent) {
-        set({ isLoading: false });
-      }
+      if (!silent) set({ isLoading: false });
     }
   },
 
@@ -78,7 +67,6 @@ const useIPPortStore = create((set, get) => ({
   // Delete configuration
   deleteConfiguration: async (configId, entryId) => {
     set({ isLoading: true });
-
     try {
       const response = await axios.post("/api/ip-port-config/delete", {
         configId,
@@ -86,14 +74,12 @@ const useIPPortStore = create((set, get) => ({
       });
 
       if (response.data.success) {
-        // If the entire config was deleted (no entries left)
         if (response.data.configDeleted) {
           set((state) => ({
             entries: state.entries.filter((config) => config._id !== configId),
           }));
           toast.success(response.data.message);
         } else {
-          // If only the entry was deleted, update the entries array
           set((state) => ({
             entries: state.entries.map((config) => {
               if (config._id === configId) {
@@ -103,7 +89,7 @@ const useIPPortStore = create((set, get) => ({
                     (e) => e._id.toString() !== entryId.toString()
                   ),
                 };
-              } 
+              }
               return config;
             }),
           }));
@@ -124,106 +110,23 @@ const useIPPortStore = create((set, get) => ({
     }
   },
 
-  // Check status for a single entry
-  checkSingleStatus: async (configId, entryIndex, entry) => {
-    const checkKey = `${configId}-${entryIndex}`;
-    
-    // Prevent duplicate checks
-    if (get().checkingEntries.has(checkKey)) {
-      console.log(`Already checking ${checkKey}, skipping...`);
-      return;
-    }
-
-    // Add to checking set
-    set((state) => ({
-      checkingEntries: new Set([...state.checkingEntries, checkKey]),
-      entries: state.entries.map((config) =>
-        config._id === configId
-          ? {
-              ...config,
-              entries: config.entries.map((e, idx) =>
-                idx === entryIndex ? { ...e, status: "checking" } : e
-              ),
-            }
-          : config
-      ),
-    }));
-
-    try {
-      const response = await axios.post("/api/ip-port-config/check-status", {
-        entries: [{ ...entry, configId }],
-      });
-
-      if (response.data.success && response.data.results && Array.isArray(response.data.results) && response.data.results.length > 0) {
-        const result = response.data.results[0];
-        set((state) => ({
-          entries: state.entries.map((config) =>
-            config._id === configId
-              ? {
-                  ...config,
-                  entries: config.entries.map((e, idx) =>
-                    idx === entryIndex
-                      ? {
-                          ...e,
-                          status: result.status,
-                          responseTime: result.responseTime,
-                          checkedAt: new Date(),
-                        }
-                      : e
-                  ),
-                }
-              : config
-          ),
-        }));
-        toast.success("Status checked successfully");
-      } else {
-        throw new Error("Invalid response format");
-      }
-    } catch (error) {
-      console.error("Error checking status:", error);
-      toast.error("Failed to check status");
-      set((state) => ({
-        entries: state.entries.map((config) =>
-          config._id === configId
-            ? {
-                ...config,
-                entries: config.entries.map((e, idx) =>
-                  idx === entryIndex
-                    ? { ...e, status: "offline", checkedAt: new Date() }
-                    : e
-                ),
-              }
-            : config
-        ),
-      }));
-    } finally {
-      // Remove from checking set
-      set((state) => {
-        const newCheckingEntries = new Set(state.checkingEntries);
-        newCheckingEntries.delete(checkKey);
-        return { checkingEntries: newCheckingEntries };
-      });
-    }
-  },
-
-  // Check status for all entries in all configs
+  // --- Updated: Check status for all entries ---
   checkAllStatus: async () => {
     const { entries, isChecking } = get();
-    
-    // Prevent multiple simultaneous checks
+
     if (isChecking) {
       console.log("Already checking all statuses, skipping...");
       return;
     }
 
-    if (entries.length === 0) {
+    if (!entries || entries.length === 0) {
       toast.info("No entries to check");
       return;
     }
 
     set({ isChecking: true });
 
-    // Mark all as checking
+    // Mark all entries as checking
     set((state) => ({
       entries: state.entries.map((config) => ({
         ...config,
@@ -243,7 +146,7 @@ const useIPPortStore = create((set, get) => ({
         entries: allEntries,
       });
 
-      if (response.data.success) {
+      if (response.data.success && Array.isArray(response.data.results)) {
         let resultIndex = 0;
         set((state) => ({
           entries: state.entries.map((config) => ({
@@ -255,15 +158,24 @@ const useIPPortStore = create((set, get) => ({
                 status: result.status,
                 responseTime: result.responseTime,
                 checkedAt: new Date(),
+                comment: result.comment,
               };
             }),
           })),
         }));
-        toast.success(`Status check completed for ${allEntries.length} ${allEntries.length === 1 ? 'entry' : 'entries'}`);
+
+        toast.success(
+          `Status check completed for ${allEntries.length} ${
+            allEntries.length === 1 ? "entry" : "entries"
+          }`
+        );
+      } else {
+        throw new Error("Invalid response format");
       }
     } catch (error) {
       console.error("Error checking all status:", error);
       toast.error("Failed to check status");
+      // Mark all as offline on error
       set((state) => ({
         entries: state.entries.map((config) => ({
           ...config,
@@ -279,10 +191,11 @@ const useIPPortStore = create((set, get) => ({
     }
   },
 
-  sendEmail: async () => {
+  // Send email
+  sendEmail: async (entryId) => {
     set({ isLoading: true });
     try {
-      const response = await axios.post("/api/sendEmail", { sendMail: true });
+      const response = await axios.post("/api/sendEmail", { entryId });
       if (response.data.success) {
         toast.success("Email sent successfully!");
         return { success: true };
@@ -300,7 +213,6 @@ const useIPPortStore = create((set, get) => ({
 
   getById: async (configId, entryId) => {
     set({ isLoading: true });
-
     try {
       const response = await axios.post("/api/ip-port-config/getById", {
         configId,
@@ -322,7 +234,6 @@ const useIPPortStore = create((set, get) => ({
 
   updateConfiguration: async (configData, entryId) => {
     set({ isLoading: true });
-
     try {
       const response = await axios.post(
         "/api/ip-port-config/update",
@@ -355,6 +266,7 @@ const useIPPortStore = create((set, get) => ({
       checking: all.filter((e) => e.status === "checking").length,
     };
   },
+  
 }));
 
 export default useIPPortStore;

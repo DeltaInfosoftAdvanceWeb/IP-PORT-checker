@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Loader2, Eye, EyeOff } from "lucide-react";
-import { toast, Toaster } from "react-hot-toast";
+import { toast } from "react-hot-toast";
 import { useRouter } from "next/navigation";
 import axios from "axios";
 import { Input } from "@/components/ui/input";
@@ -72,7 +72,6 @@ export default function SignupPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#1ca5b3] to-[#0e7c87] flex items-center justify-center p-6">
-      <Toaster position="bottom-right" />
 
       <div className="bg-white rounded-3xl shadow-2xl p-10 w-full max-w-md">
         {/* Logo section */}

@@ -5,7 +5,7 @@ import React, { useEffect, useState } from "react";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 import useIPPortStore from "@/store/useIPPortStore";
-import { toast, Toaster } from "react-hot-toast";
+import { toast } from "react-hot-toast";
 
 const IPPortForm = ({ configId, entryId }) => {
   const {
@@ -19,26 +19,30 @@ const IPPortForm = ({ configId, entryId }) => {
     closeEdit,
     isEditing,
   } = useIPPortStore();
-  
+
+  // 🧩 Default entry now keeps emails as string, not array
   const [entries, setEntries] = useState([
-    { id: "1", ip: "", port: "", referPortName: "" },
+    { id: "1", ip: "", port: "", referPortName: "", emails: "" },
   ]);
   const [nextId, setNextId] = useState(2);
 
+  // ➕ Add new entry
   const addEntry = () => {
     setEntries([
       ...entries,
-      { id: nextId, ip: "", port: "", referPortName: "" },
+      { id: nextId, ip: "", port: "", referPortName: "", emails: "" },
     ]);
     setNextId(nextId + 1);
   };
 
+  // ❌ Remove entry
   const removeEntry = (id) => {
     if (entries.length > 1) {
       setEntries(entries.filter((ent) => ent.id !== id));
     }
   };
 
+  // ✏️ Update entry field
   const updateEntry = (id, field, value) => {
     setEntries(
       entries.map((entry) =>
@@ -47,6 +51,12 @@ const IPPortForm = ({ configId, entryId }) => {
     );
   };
 
+  // 🧠 Keep email as raw text — only split during submit
+  const updateEmails = (id, value) => {
+    updateEntry(id, "emails", value);
+  };
+
+  // 📋 Handle paste of multiple IPs or ports
   const handlePaste = (e, id, field) => {
     const pastedText = e.clipboardData.getData("text");
     const lines = pastedText.split("\n").filter((line) => line.trim());
@@ -59,13 +69,11 @@ const IPPortForm = ({ configId, entryId }) => {
 
       lines.forEach((line, index) => {
         const trimmedLine = line.trim();
-
         if (index === 0) {
           if (field === "ip") {
             const [ip, port] = trimmedLine.includes(":")
               ? trimmedLine.split(":").map((s) => s.trim())
               : [trimmedLine, ""];
-
             newEntries.push({
               ...entries[currentIndex],
               ip,
@@ -79,13 +87,20 @@ const IPPortForm = ({ configId, entryId }) => {
             const [ip, port] = trimmedLine.includes(":")
               ? trimmedLine.split(":").map((s) => s.trim())
               : [trimmedLine, ""];
-            newEntries.push({ id: nextId + index - 1, ip, port, referPortName: "" });
+            newEntries.push({
+              id: nextId + index - 1,
+              ip,
+              port,
+              referPortName: "",
+              emails: "",
+            });
           } else {
             newEntries.push({
               id: nextId + index - 1,
               ip: "",
               port: trimmedLine,
               referPortName: "",
+              emails: "",
             });
           }
         }
@@ -102,31 +117,41 @@ const IPPortForm = ({ configId, entryId }) => {
     }
   };
 
+  // 💾 Submit new configuration
   const handleSubmit = async () => {
-    const result = await addConfiguration({
-      entries: entries.map(({ ip, port, referPortName }) => ({
-        ip,
-        port,
-        referPortName,
-      })),
-    });
+    const formattedEntries = entries.map(({ ip, port, referPortName, emails }) => ({
+      ip,
+      port,
+      referPortName,
+      emails: typeof emails === "string"
+        ? emails.split(/[,\n]/).map((e) => e.trim()).filter(Boolean)
+        : emails,
+    }));
+
+    const result = await addConfiguration({ entries: formattedEntries });
 
     if (result.success) {
       toast.success("Configuration saved successfully!");
-      setEntries([{ id: "1", ip: "", port: "", referPortName: "" }]);
+      setEntries([{ id: "1", ip: "", port: "", referPortName: "", emails: "" }]);
       setNextId(2);
       checkAllStatus();
     }
   };
 
+  // ✏️ Update existing configuration
   const handleUpdate = async () => {
+    const formattedEntries = entries.map(({ ip, port, referPortName, emails }) => ({
+      ip,
+      port,
+      referPortName,
+      emails: typeof emails === "string"
+        ? emails.split(/[,\n]/).map((e) => e.trim()).filter(Boolean)
+        : emails,
+    }));
+
     try {
       const { data } = await updateConfiguration({
-        entries: entries.map(({ ip, port, referPortName }) => ({
-          ip,
-          port,
-          referPortName,
-        })),
+        entries: formattedEntries,
         configId,
         entryId,
       });
@@ -135,179 +160,159 @@ const IPPortForm = ({ configId, entryId }) => {
         toast.success(data.message);
         fetchConfigurations();
         checkAllStatus();
-        setEntries([{ id: "1", ip: "", port: "", referPortName: "" }]);
-        setNextId(2);
-        closeEdit();
-        closeModal();
+        handleClose();
       }
     } catch (error) {
-      console.log("error", error);
+      console.error("Error updating configuration:", error);
     }
   };
 
+  // 🧹 Close modal
   const handleClose = () => {
-    setEntries([{ id: "1", ip: "", port: "", referPortName: "" }]);
+    setEntries([{ id: "1", ip: "", port: "", referPortName: "", emails: "" }]);
     setNextId(2);
     closeEdit();
     closeModal();
   };
 
+  // 🧩 Fetch config if editing
   useEffect(() => {
     const fetchConfigData = async () => {
       if (isEditing && configId && entryId) {
         const response = await getById(configId, entryId);
-        
         if (response.success && response.IpConfigData) {
-          toast.success("Ip config fetched successfully")
+          toast.success("IP config fetched successfully");
           setEntries([
             {
               ...response.IpConfigData,
               id: response.IpConfigData._id?.toString() || "1",
+              emails: Array.isArray(response.IpConfigData.emails)
+                ? response.IpConfigData.emails.join(", ")
+                : response.IpConfigData.emails || "",
             },
           ]);
         }
       }
     };
-
     fetchConfigData();
   }, [configId, entryId, isEditing]);
 
   return (
     <>
-      <Toaster position="bottom-right" />
 
       <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/20 p-4 overflow-y-auto">
-        <div className="bg-gray-50 p-4 sm:p-6 rounded-md w-full max-w-2xl lg:max-w-4xl my-4">
-          <div className="mx-auto">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
-              <div className="flex items-center justify-center mb-4 sm:mb-6">
-                <div>
-                  <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 text-center">
-                    {isEditing
-                      ? "Edit IP & PORT Configuration"
-                      : "IP & PORT Configuration"}
-                  </h1>
+        <div className="bg-gray-50 p-4 sm:p-6 rounded-md w-full max-w-6xl my-4">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
+            <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 text-center mb-6">
+              {isEditing ? "Edit IP & PORT Configuration" : "IP & PORT Configuration"}
+            </h1>
+
+            <div className="space-y-4">
+              <div className="border rounded border-gray-200 py-6 px-3 space-y-3">
+                <div className="hidden sm:grid grid-cols-12 gap-3 text-xs font-medium text-gray-500 uppercase tracking-wide pb-2">
+                  <div className="col-span-3">IP Address</div>
+                  <div className="col-span-2">Port</div>
+                  <div className="col-span-3">Refer Port Name</div>
+                  <div className="col-span-3">Emails</div>
+                  <div className="col-span-1"></div>
                 </div>
+
+                {entries.map((ent) => (
+                  <div
+                    key={ent.id}
+                    className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center"
+                  >
+                    <div className="sm:col-span-3">
+                      <Input
+                        type="text"
+                        value={ent.ip}
+                        onChange={(e) => updateEntry(ent.id, "ip", e.target.value)}
+                        onPaste={(e) => handlePaste(e, ent.id, "ip")}
+                        placeholder="192.168.1.1"
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <Input
+                        type="text"
+                        value={ent.port}
+                        onChange={(e) => updateEntry(ent.id, "port", e.target.value)}
+                        placeholder="3000"
+                      />
+                    </div>
+                    <div className="sm:col-span-3">
+                      <Input
+                        type="text"
+                        value={ent.referPortName}
+                        onChange={(e) =>
+                          updateEntry(ent.id, "referPortName", e.target.value)
+                        }
+                        placeholder="postgres"
+                      />
+                    </div>
+                    <div className="sm:col-span-3">
+                      <Input
+                        type="text"
+                        value={ent.emails}
+                        onChange={(e) => updateEmails(ent.id, e.target.value)}
+                        placeholder="email1@example.com, email2@example.com"
+                      />
+                    </div>
+                    <div className="sm:col-span-1 flex justify-end">
+                      {!isEditing && (
+                        <Button
+                          type="button"
+                          className={`${
+                            entries.length === 1
+                              ? "cursor-not-allowed"
+                              : "text-white bg-red-600 hover:bg-red-400"
+                          } w-full sm:w-auto`}
+                          disabled={entries.length === 1}
+                          onClick={() => removeEntry(ent.id)}
+                        >
+                          <X size={18} />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
 
-              <div className="space-y-3">
-                <div className="space-y-3 my-8 border rounded border-gray-200 py-6 px-3">
-                  <div className="hidden sm:grid grid-cols-12 gap-3 text-xs font-medium text-gray-500 uppercase tracking-wide pb-2">
-                    <div className="col-span-4">IP Address</div>
-                    <div className="col-span-4">Port</div>
-                    <div className="col-span-3">Refer Port Name</div>
-                    <div className="col-span-1"></div>
-                  </div>
-                  {entries.map((ent) => (
-                    <div
-                      key={ent.id}
-                      className="grid grid-cols-1 sm:grid-cols-12 gap-2 sm:gap-3 items-center group"
-                    >
-                      <div className="sm:col-span-4">
-                        <label className="block sm:hidden text-xs font-medium text-gray-500 mb-1">
-                          IP Address
-                        </label>
-                        <Input
-                          type="text"
-                          value={ent.ip}
-                          onChange={(e) =>
-                            updateEntry(ent.id, "ip", e.target.value)
-                          }
-                          onPaste={(e) => handlePaste(e, ent.id, "ip")}
-                          placeholder="192.168.1.1 or paste multiple"
-                          className="rounded outline-none w-full"
-                        />
-                      </div>
-                      <div className="sm:col-span-4">
-                        <label className="block sm:hidden text-xs font-medium text-gray-500 mb-1">
-                          Port
-                        </label>
-                        <Input
-                          type="text"
-                          value={ent.port}
-                          onChange={(e) =>
-                            updateEntry(ent.id, "port", e.target.value)
-                          }
-                          placeholder="3000 or paste multiple"
-                          onPaste={(e) => handlePaste(e, ent.id, "port")}
-                          className="rounded outline-none w-full"
-                        />
-                      </div>
-                      <div className="sm:col-span-3">
-                        <label className="block sm:hidden text-xs font-medium text-gray-500 mb-1">
-                          Refer Port Name
-                        </label>
-                        <Input
-                          type="text"
-                          value={ent.referPortName}
-                          onChange={(e) => {
-                            updateEntry(
-                              ent.id,
-                              "referPortName",
-                              e.target.value
-                            );
-                          }}
-                          placeholder="postgres"
-                          className="rounded outline-none w-full"
-                        />
-                      </div>
-                      <div className="sm:col-span-1 flex justify-end sm:justify-end">
-                        {!isEditing && (
-                          <Button
-                            type="button"
-                            className={`${
-                              entries.length === 1
-                                ? "cursor-not-allowed"
-                                : "text-white bg-red-600 hover:bg-red-400"
-                            } w-full sm:w-auto`}
-                            disabled={entries.length === 1}
-                            onClick={() => removeEntry(ent.id)}
-                          >
-                            <X size={18} />
-                            <span className="sm:hidden ml-2">Remove</span>
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                {!isEditing && (
-                  <Button
-                    type="button"
-                    onClick={addEntry}
-                    className="bg-transparent text-black flex w-full hover:bg-gray-50 border-dashed border rounded-md"
-                  >
-                    <Plus size={16} />
-                    <span className="ml-2">Add Entry</span>
-                  </Button>
-                )}
+              {!isEditing && (
+                <Button
+                  type="button"
+                  onClick={addEntry}
+                  className="bg-transparent text-black flex w-full hover:bg-gray-50 border-dashed border rounded-md"
+                >
+                  <Plus size={16} />
+                  <span className="ml-2">Add Entry</span>
+                </Button>
+              )}
 
-                <div className="pt-4 sm:pt-6 border-t border-gray-200 mt-4 sm:mt-6 flex flex-col sm:flex-row items-center gap-3 sm:gap-4 justify-between">
+              <div className="pt-4 border-t flex flex-col sm:flex-row items-center gap-3 justify-between">
+                <Button
+                  onClick={handleClose}
+                  className="w-full bg-transparent text-black hover:bg-gray-100"
+                  disabled={isLoading}
+                >
+                  Cancel
+                </Button>
+                {!isEditing ? (
                   <Button
-                    onClick={handleClose}
-                    className="w-full bg-transparent text-black hover:bg-gray-100"
+                    onClick={handleSubmit}
+                    className="w-full"
                     disabled={isLoading}
                   >
-                    Cancel
+                    {isLoading ? "Saving..." : "Save Configuration"}
                   </Button>
-                  {!isEditing ? (
-                    <Button
-                      onClick={handleSubmit}
-                      className="w-full"
-                      disabled={isLoading}
-                    >
-                      {isLoading ? "Saving..." : "Save Configuration"}
-                    </Button>
-                  ) : (
-                    <Button
-                      onClick={handleUpdate}
-                      className="w-full"
-                      disabled={isLoading}
-                    >
-                      {isLoading ? "Saving..." : "Update Configuration"}
-                    </Button>
-                  )}
-                </div>
+                ) : (
+                  <Button
+                    onClick={handleUpdate}
+                    className="w-full"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? "Saving..." : "Update Configuration"}
+                  </Button>
+                )}
               </div>
             </div>
           </div>

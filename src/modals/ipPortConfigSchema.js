@@ -28,6 +28,18 @@ const ipPortEntrySchema = new mongoose.Schema({
     type: String,
     default: "custom",
   },
+  emails: {
+    type: [String],
+    validate: {
+      validator: function (emails) {
+        return emails.every((email) =>
+          /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+        );
+      },
+      message: "One or more email addresses are invalid",
+    },
+    default: [],
+  },
 });
 
 const ipPortConfigSchema = new mongoose.Schema(
@@ -47,7 +59,7 @@ const ipPortConfigSchema = new mongoose.Schema(
         },
         message: "At least one IP/Port entry is required",
       },
-    }
+    },
   },
   {
     timestamps: true,

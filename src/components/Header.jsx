@@ -26,11 +26,16 @@ export function Header() {
   const handleLogout = async () => {
     setIsLoading(true);
     try {
-      await axios.get("/api/logout");
-      toast.success("Logout successful");
-      router.push("/login");
+      const res = await axios.get("/api/logout");
+
+      if (res.status === 200) {
+        toast.success("Logout successful");
+        setTimeout(() => router.push("/login"), 500);
+      } else {
+        toast.error("Logout failed");
+      }
     } catch (error) {
-      console.error(error);
+      console.error("Logout Error:", error);
       toast.error("Logout failed");
     } finally {
       setIsLoading(false);
@@ -44,7 +49,6 @@ export function Header() {
           <Spin size="large" />
         </div>
       )}
-      <Toaster position="bottom-right" />
 
       <header className="w-full rounded bg-white shadow-md">
         <div className="mx-auto px-4 sm:px-6 lg:px-8">

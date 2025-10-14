@@ -5,11 +5,11 @@ import jwt from "jsonwebtoken";
 
 export async function POST(req) {
   try {
+    // 🧩 1️⃣ Connect to MongoDB
     await connectToDatabase();
 
-    // Get token from cookies or headers
+    // 🔐 2️⃣ Get JWT from cookies
     const token = req.cookies.get("authToken")?.value;
-
     if (!token) {
       return NextResponse.json(
         {
@@ -20,7 +20,7 @@ export async function POST(req) {
       );
     }
 
-    // Verify token and extract user ID
+    // ✅ 3️⃣ Verify JWT
     let decoded;
     try {
       decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -36,10 +36,9 @@ export async function POST(req) {
 
     const userId = decoded.userId;
 
-    // Parse request body
+    // 🧠 4️⃣ Parse and validate request body
     const { entries } = await req.json();
 
-    // Validate entries
     if (!entries || !Array.isArray(entries) || entries.length === 0) {
       return NextResponse.json(
         {
@@ -50,62 +49,58 @@ export async function POST(req) {
       );
     }
 
-    // Validate each entry has ip and port
-    const isValid = entries.every(
-      (entry) =>
-        entry.ip &&
-        entry.port &&
-        entry.referPortName &&
-        entry.referPortName.trim() !== "" &&
-        entry.ip.trim() !== "" &&
-        entry.port.trim() !== ""
-    );
+    // 📧 5️⃣ Email validation helper
+    const isValidEmail = (email) =>
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
-    if (!isValid) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "All entries must have both IP address and port",
-        },
-        { status: 400 }
-      );
-    }
+    // 🧹 6️⃣ Clean + validate each entry
+    const cleanedEntries = entries.map((entry, index) => {
+      const { ip, port, referPortName, emails } = entry;
 
-    // const portReferenceMap = {
-    //   80: "http",
-    //   443: "https",
-    //   21: "ftp",
-    //   22: "ssh",
-    //   25: "smtp",
-    //   110: "pop3",
-    //   143: "imap",
-    //   3306: "mysql",
-    //   5432: "postgresql",
-    //   6379: "redis",
-    //   27017: "mongodb",
-    //   5000: "local dev",
-    //   8000: "dev server",
-    // };
+      // Required fields check
+      if (!ip || !port || !referPortName) {
+        throw new Error(
+          `Entry ${index + 1}: IP, Port, and Refer Port Name are required`
+        );
+      }
 
-    // Clean and enrich entries
-    // const cleanedEntries = entries.map(({ ip, port }) => {
-    //   const trimmedPort = port.trim();
-    //   const referPortName = portReferenceMap[trimmedPort] || "custom";
-    //   return {
-    //     ip: ip.trim(),
-    //     port: trimmedPort,
-    //     referPortName,
-    //   };
-    // });
+      // Clean and validate emails
+      const cleanedEmails = Array.isArray(emails)
+        ? emails
+            .map((e) => e.trim())
+            .filter((e) => e.length > 0 && isValidEmail(e)) 
+        : typeof emails === "string"
+        ? emails
+            .split(/[,\n]/)
+            .map((e) => e.trim())
+            .filter((e) => e.length > 0 && isValidEmail(e))
+        : [];
 
-    // Create new IP/Port configuration
+      if (cleanedEmails.length === 0) {
+        throw new Error(
+          `Entry ${index + 1}: At least one valid email is required`
+        );
+      }
+
+      return {
+        ip: ip.trim(),
+        port: port.trim(),
+        referPortName: referPortName.trim() || "custom",
+        emails: cleanedEmails,
+        status: "unknown",
+        checkedAt: new Date(),
+      };
+    });
+
+    // 💾 7️⃣ Save to MongoDB
     const newConfig = new IPPortConfig({
       userId,
-      entries,
+      entries: cleanedEntries,
     });
 
     await newConfig.save();
 
+    // 🎉 8️⃣ Return success response
     return NextResponse.json(
       {
         success: true,
@@ -124,8 +119,9 @@ export async function POST(req) {
     return NextResponse.json(
       {
         success: false,
-        message: "An error occurred while saving configuration",
-        error: error.message,
+        message:
+          error.message ||
+          "An unexpected error occurred while saving configuration",
       },
       { status: 500 }
     );
