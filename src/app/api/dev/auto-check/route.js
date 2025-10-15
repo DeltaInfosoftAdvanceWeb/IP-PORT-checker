@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import net from "net";
+import mongoose from "mongoose";
 import IPPortConfig from "../../../../modals/ipPortConfigSchema.js";
-// import { connectToDatabase } from "../../../../../dbConfig.js";
 import IPPortCheckedLog from "../../../../modals/checkedLogSchema.js";
-import sendEmail from "../../../../lib/sendEmail.js"; // make sure this path is correct
+import sendEmail from "../../../../lib/sendEmail.js";
 
-// --- Helper: check single port ---
+// --- Check single port ---
 function checkPort(ip, port, timeout = 3000) {
   return new Promise((resolve) => {
     const socket = new net.Socket();
@@ -38,16 +38,7 @@ function checkPort(ip, port, timeout = 3000) {
   });
 }
 
-// --- Generate readable comment ---
-function generateComment(status) {
-  const prefix = "[AutoCheck] ";
-  if (status === "online") return prefix + "Active / Running";
-  if (status === "offline") return prefix + "Server is offline / unreachable";
-  if (status === "timeout") return prefix + "Connection timed out";
-  return prefix + "Status unknown";
-}
-
-// --- Format date and time ---
+// --- Format date/time ---
 function formatDateTime(date) {
   const d = new Date(date);
   const pad = (n) => n.toString().padStart(2, "0");
@@ -56,64 +47,71 @@ function formatDateTime(date) {
   )}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
-// --- Helper: send offline alert email ---
+// --- Generate comment ---
+function generateComment(status) {
+  const prefix = "[AutoCheck] ";
+  if (status === "online") return prefix + "Active / Running";
+  if (status === "offline") return prefix + "Server is offline / unreachable";
+  if (status === "timeout") return prefix + "Connection timed out";
+  return prefix + "Status unknown";
+}
+
+// --- Send alert email for offline/timeout ---
 async function sendOfflineAlertEmail(entry, logData) {
   const { ip, port, referPortName, emails } = entry;
-  if (!emails || emails.length === 0) return;
+  if (!emails?.length) return;
 
-  const lastLogs = logData.logs.slice(-5); // send last 5 logs for context
+  const lastLogs = logData?.logs?.slice(-5) || [];
+  const latestStatus = lastLogs?.[lastLogs.length - 1]?.status || "unknown";
+  const alertType = latestStatus === "timeout" ? "⚠️ Connection Timeout" : "🔴 Server Offline";
+  const alertColor = latestStatus === "timeout" ? "#fbbf24" : "#d9534f";
   const requestedTime = new Date();
 
   const htmlMessage = `
-    <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto;">
-      <h2 style="color: #d9534f;">⚠️ Server Offline Alert</h2>
-      <p>Hello,</p>
-      <p>The following IP:Port entry was detected as <strong style="color:red;">OFFLINE</strong> during the latest automatic check.</p>
-      <p><strong>IP:</strong> ${ip}<br>
-         <strong>Port:</strong> ${port}<br>
-         <strong>Refer Port:</strong> ${referPortName || "custom"}<br>
-         <strong>Checked At:</strong> ${formatDateTime(requestedTime)}</p>
-
+    <div style="font-family: Arial, sans-serif; max-width:700px;margin:0 auto;">
+      <h2 style="color:${alertColor};">${alertType}</h2>
+      <p>IP: <strong>${ip}</strong><br>
+         Port: <strong>${port}</strong><br>
+         Refer Port: <strong>${referPortName || "custom"}</strong><br>
+         Checked At: ${formatDateTime(requestedTime)}</p>
       <h4>Recent Logs:</h4>
-      <table style="width: 100%; border-collapse: collapse;">
+      <table style="width:100%;border-collapse:collapse;">
         <thead>
           <tr>
-            <th style="border: 1px solid #ddd; padding: 8px;">Checked At</th>
-            <th style="border: 1px solid #ddd; padding: 8px;">Status</th>
-            <th style="border: 1px solid #ddd; padding: 8px;">Response Time (ms)</th>
-            <th style="border: 1px solid #ddd; padding: 8px;">Comment</th>
+            <th style="border:1px solid #ddd;padding:8px;">Checked At</th>
+            <th style="border:1px solid #ddd;padding:8px;">Status</th>
+            <th style="border:1px solid #ddd;padding:8px;">Response (ms)</th>
+            <th style="border:1px solid #ddd;padding:8px;">Comment</th>
           </tr>
         </thead>
         <tbody>
           ${lastLogs
             .map(
-              (r) => `
-            <tr>
-              <td style="border: 1px solid #ddd; padding: 8px;">${formatDateTime(r.checkedAt)}</td>
-              <td style="border: 1px solid #ddd; padding: 8px; color:${
-                r.status === "offline" ? "red" : "green"
-              }; font-weight:bold;">${r.status}</td>
-              <td style="border: 1px solid #ddd; padding: 8px;">${r.responseTime || "-"}</td>
-              <td style="border: 1px solid #ddd; padding: 8px;">${r.comment}</td>
-            </tr>`
+              (r) => `<tr>
+                <td style="border:1px solid #ddd;padding:8px;">${formatDateTime(r.checkedAt)}</td>
+                <td style="border:1px solid #ddd;padding:8px;color:${
+                  r.status === "offline" ? "red" : r.status === "timeout" ? "#d97706" : "green"
+                }; font-weight:bold;">${r.status}</td>
+                <td style="border:1px solid #ddd;padding:8px;">${r.responseTime || "-"}</td>
+                <td style="border:1px solid #ddd;padding:8px;">${r.comment}</td>
+              </tr>`
             )
             .join("")}
         </tbody>
       </table>
-
-      <p style="margin-top: 20px;">Please check the server immediately.</p>
-      <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
-      <p style="color: #666; font-size: 12px;">Best regards,<br>DeltaInfoSoft Monitoring System</p>
+      <p>Please check the server immediately.</p>
+      <hr style="margin:20px 0;border:none;border-top:1px solid #eee;">
+      <p style="color:#666;font-size:12px;">Monitoring System</p>
     </div>
   `;
 
-  const message = `
-Server Offline Alert:
+  const textMessage = `
+${alertType}:
 
 IP: ${ip}
 Port: ${port}
 Refer Port: ${referPortName || "custom"}
-Detected At: ${formatDateTime(requestedTime)}
+Checked At: ${formatDateTime(requestedTime)}
 
 Recent Logs:
 ${lastLogs
@@ -130,31 +128,29 @@ Please check the server immediately.
     try {
       await sendEmail({
         email,
-        subject: `⚠️ Server Offline - ${ip}:${port}`,
-        message,
+        subject: `${alertType} - ${ip}:${port}`,
+        message: textMessage,
         html: htmlMessage,
       });
-      console.log(`📧 Alert sent to ${email} for ${ip}:${port}`);
+      console.log(`📧 Alert sent to ${email} for ${ip}:${port} (${latestStatus})`);
     } catch (err) {
       console.error(`❌ Failed to send email to ${email}:`, err.message);
     }
   }
 }
 
-// --- Main GET function ---
+// --- Main Auto Check Function ---
 export async function GET() {
-  const startTime = new Date();
-  console.log("\n" + "=".repeat(60));
-  console.log(`🔄 [AUTO-CHECK] Started at: ${startTime.toLocaleString()}`);
-  console.log("=".repeat(60));
+  console.log("\n🔄 Starting Auto Check:", new Date().toLocaleString());
 
   try {
-    // await connectToDatabase();
-    console.log("✅ Database connected");
+    if (mongoose.connection.readyState !== 1) {
+      console.warn("⚠️ MongoDB not connected. Ensure DB connection before running.");
+    }
 
-    const configs = await IPPortConfig.find({});
+    const configs = await IPPortConfig.find({}).lean();
     if (!configs.length) {
-      console.log("⚠️ No configurations found");
+      console.warn("⚠️ No configurations found");
       return NextResponse.json({ success: false, message: "No configurations found" });
     }
 
@@ -171,11 +167,12 @@ export async function GET() {
 
     const results = await Promise.all(
       allEntries.map(async (entry) => {
-        const { ip, port, entryId, configId, referPortName } = entry;
+        const { ip, port, entryId, configId } = entry;
         try {
           const result = await checkPort(ip, parseInt(port));
           const comment = generateComment(result.status);
 
+          // Update config entry
           await IPPortConfig.updateOne(
             { _id: configId, "entries._id": entryId },
             {
@@ -187,10 +184,11 @@ export async function GET() {
             }
           );
 
-          await IPPortCheckedLog.findOneAndUpdate(
+          // Update logs
+          const logData = await IPPortCheckedLog.findOneAndUpdate(
             { entryId },
             {
-              $setOnInsert: { ip, port, referPortName },
+              $setOnInsert: { ip, port, referPortName: entry.referPortName || "custom" },
               $push: {
                 logs: {
                   status: result.status,
@@ -203,9 +201,8 @@ export async function GET() {
             { upsert: true, new: true }
           );
 
-          // Send alert if offline
-          if (result.status === "offline") {
-            const logData = await IPPortCheckedLog.findOne({ entryId });
+          // Send alert only if offline/timeout
+          if (["offline", "timeout"].includes(result.status)) {
             await sendOfflineAlertEmail(entry, logData);
           }
 
@@ -223,17 +220,17 @@ export async function GET() {
       timeout: results.filter((r) => r.status === "timeout").length,
     };
 
-    console.log("\n📊 Summary:", summary);
-    console.log("=".repeat(60) + "\n");
+    console.log("📊 Auto Check Summary:", summary);
+    console.log("=".repeat(60));
 
     return NextResponse.json({
       success: true,
-      message: "Automatic check completed",
-      summary,
+      message: "Auto check completed",
       totalChecked: results.length,
+      summary,
     });
   } catch (error) {
-    console.error("❌ Error in auto-check:", error);
+    console.error("❌ Error during auto check:", error);
     return NextResponse.json(
       { success: false, message: "Internal server error", error: error.message },
       { status: 500 }

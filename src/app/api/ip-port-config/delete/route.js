@@ -54,7 +54,7 @@ export async function POST(req) {
 
     // First, pull the entry from the entries 
     const updatedConfig = await IPPortConfig.findOneAndUpdate(
-      { _id: configId, userId },
+      { _id: configId },
       { $pull: { entries: { _id: entryId } } },
       { new: true }
     );

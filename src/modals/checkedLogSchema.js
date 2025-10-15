@@ -1,39 +1,41 @@
 import mongoose from "mongoose";
 
+// --- Individual check log (for one timestamp) ---
 const ipPortSingleLogSchema = new mongoose.Schema({
   checkedAt: { type: Date, default: Date.now },
   status: {
     type: String,
-    enum: ["online", "offline", "timeout", "checking", "unknown"],
-    default: "unknown",
+    enum: ["online", "offline"], // ✅ Only two statuses
+    default: "offline",
   },
   responseTime: { type: Number, default: null },
   comment: { type: String, trim: true, default: "" },
 });
 
+// --- Auto-generate readable comment before saving ---
 ipPortSingleLogSchema.pre("save", function (next) {
   if (!this.comment) {
-    if (this.status === "online") this.comment = "Active / Running";
-    else if (this.status === "offline") this.comment = "Server is offline / unreachable";
-    else if (this.status === "timeout") this.comment = "Connection timed out";
-    else if (this.status === "checking") this.comment = "Checking status...";
-    else this.comment = "Status unknown";
+    this.comment =
+      this.status === "online"
+        ? "Active / Running"
+        : "Server is offline / unreachable";
   }
   next();
 });
 
+// --- Log document for each entry ---
 const ipPortEntryLogSchema = new mongoose.Schema(
   {
     entryId: {
       type: mongoose.Schema.Types.ObjectId,
       required: true,
       ref: "IPPortConfig",
-      unique: true, // One doc per entry
+      unique: true, // ✅ 1 log doc per entry
     },
     ip: { type: String, required: true },
     port: { type: String, required: true },
     referPortName: { type: String, default: "custom" },
-    logs: { type: [ipPortSingleLogSchema], default: [] },
+    logs: { type: [ipPortSingleLogSchema], default: [] }, // ✅ Array of log history
   },
   { timestamps: true }
 );

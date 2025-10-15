@@ -3,6 +3,7 @@ import IPPortConfig from "../../../modals/ipPortConfigSchema.js";
 import IPPortCheckedLog from "../../../modals/checkedLogSchema.js";
 import sendEmail from "../../../lib/sendEmail.js";
 
+// --- Helper: format date/time ---
 const formatDateTime = (date) => {
   const d = new Date(date);
   const pad = (n) => n.toString().padStart(2, "0");
@@ -11,6 +12,7 @@ const formatDateTime = (date) => {
   )}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 };
 
+// --- Manual log email sender ---
 export async function POST(req) {
   try {
     const { entryId } = await req.json();
@@ -22,7 +24,7 @@ export async function POST(req) {
       );
     }
 
-    // 1️⃣ Get entry details (with emails)
+    // 1️⃣ Fetch entry with emails
     const config = await IPPortConfig.findOne({ "entries._id": entryId });
     if (!config) {
       return NextResponse.json(
@@ -41,12 +43,12 @@ export async function POST(req) {
 
     if (!entry.emails || entry.emails.length === 0) {
       return NextResponse.json(
-        { success: false, message: "No emails found for this entry" },
+        { success: false, message: "No emails associated with this entry" },
         { status: 400 }
       );
     }
 
-    // 2️⃣ Get all logs for this entry
+    // 2️⃣ Fetch logs for this entry (last 5 only)
     const logData = await IPPortCheckedLog.findOne({ entryId });
     if (!logData || !logData.logs.length) {
       return NextResponse.json(
@@ -55,21 +57,22 @@ export async function POST(req) {
       );
     }
 
+    const lastLogs = logData.logs.slice(-5); // ✅ only last 5 logs
     const requestedTime = new Date();
 
     // 3️⃣ Prepare email content
     const textMessage = `
 Hi,
 
-Here’s the log report for your IP PORT entry ${entry.ip}:${entry.port} (${entry.referPortName || "custom"}) 
+Here’s the log report for your IP:PORT entry ${entry.ip}:${entry.port} (${entry.referPortName || "custom"})
 generated on ${formatDateTime(requestedTime)}.
 
-| Checked At | Status | Response Time | Comment |
-|-------------|---------|----------------|-----------|
-${logData.logs
+| Checked At           | Status  | Response Time | Comment |
+|----------------------|---------|---------------|---------|
+${lastLogs
   .map(
     (r) =>
-      `${formatDateTime(r.checkedAt)}\t${r.status}\t${r.responseTime || "-"}ms\t${r.comment}`
+      `${formatDateTime(r.checkedAt)} | ${r.status} | ${r.responseTime || "-"}ms | ${r.comment}`
   )
   .join("\n")}
 
@@ -96,9 +99,9 @@ DeltaInfoSoft
       </tr>
     </thead>
     <tbody>
-      ${logData.logs
+      ${lastLogs
         .map((r) => {
-          let color =
+          const color =
             r.status === "online"
               ? "green"
               : r.status === "offline"
@@ -107,18 +110,18 @@ DeltaInfoSoft
               ? "orange"
               : "gray";
           return `
-          <tr>
-            <td style="border: 1px solid #ddd; padding: 8px;">${formatDateTime(
-              r.checkedAt
-            )}</td>
-            <td style="border: 1px solid #ddd; padding: 8px; color:${color}; font-weight: bold;">
-              ${r.status}
-            </td>
-            <td style="border: 1px solid #ddd; padding: 8px;">${
-              r.responseTime || "-"
-            }</td>
-            <td style="border: 1px solid #ddd; padding: 8px;">${r.comment}</td>
-          </tr>`;
+        <tr>
+          <td style="border: 1px solid #ddd; padding: 8px;">${formatDateTime(
+            r.checkedAt
+          )}</td>
+          <td style="border: 1px solid #ddd; padding: 8px; color:${color}; font-weight: bold;">
+            ${r.status}
+          </td>
+          <td style="border: 1px solid #ddd; padding: 8px;">${
+            r.responseTime || "-"
+          }</td>
+          <td style="border: 1px solid #ddd; padding: 8px;">${r.comment}</td>
+        </tr>`;
         })
         .join("")}
     </tbody>
@@ -129,22 +132,33 @@ DeltaInfoSoft
 </div>
 `;
 
-    // 4️⃣ Send email to all associated emails
+    // 4️⃣ Send email to all recipients
+    const sendResults = [];
     for (const email of entry.emails) {
-      await sendEmail({
-        email,
-        subject: `IP PORT Log Report - ${entry.ip}:${entry.port}`,
-        message: textMessage,
-        html: htmlMessage,
-      });
+      try {
+        await sendEmail({
+          email,
+          subject: `IP PORT Log Report - ${entry.ip}:${entry.port}`,
+          message: textMessage,
+          html: htmlMessage,
+        });
+        sendResults.push({ email, status: "sent" });
+      } catch (err) {
+        console.error(`Failed to send email to ${email}:`, err.message);
+        sendResults.push({ email, status: "failed", error: err.message });
+      }
     }
 
     return NextResponse.json(
-      { success: true, message: "Emails sent successfully" },
+      {
+        success: true,
+        message: "Manual log emails processed (last 5 logs only)",
+        results: sendResults,
+      },
       { status: 200 }
     );
   } catch (error) {
-    console.error("Error sending entry log email:", error);
+    console.error("Error sending manual log email:", error);
     return NextResponse.json(
       { success: false, message: "Internal server error", error: error.message },
       { status: 500 }

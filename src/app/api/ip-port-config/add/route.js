@@ -5,10 +5,10 @@ import jwt from "jsonwebtoken";
 
 export async function POST(req) {
   try {
-    // 🧩 1️⃣ Connect to MongoDB
+    // 1️⃣ Connect to MongoDB
     await connectToDatabase();
 
-    // 🔐 2️⃣ Get JWT from cookies
+    // 2️⃣ Get JWT from cookies
     const token = req.cookies.get("authToken")?.value;
     if (!token) {
       return NextResponse.json(
@@ -20,7 +20,7 @@ export async function POST(req) {
       );
     }
 
-    // ✅ 3️⃣ Verify JWT
+    // 3️⃣ Verify JWT
     let decoded;
     try {
       decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -36,7 +36,7 @@ export async function POST(req) {
 
     const userId = decoded.userId;
 
-    // 🧠 4️⃣ Parse and validate request body
+    // 4️⃣ Parse and validate request body
     const { entries } = await req.json();
 
     if (!entries || !Array.isArray(entries) || entries.length === 0) {
@@ -49,26 +49,22 @@ export async function POST(req) {
       );
     }
 
-    // 📧 5️⃣ Email validation helper
+    // 5️⃣ Email validation helper
     const isValidEmail = (email) =>
       /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
-    // 🧹 6️⃣ Clean + validate each entry
+    // 6️⃣ Clean + validate each entry
     const cleanedEntries = entries.map((entry, index) => {
       const { ip, port, referPortName, emails } = entry;
 
       // Required fields check
-      if (!ip || !port || !referPortName) {
-        throw new Error(
-          `Entry ${index + 1}: IP, Port, and Refer Port Name are required`
-        );
+      if (!ip || !port) {
+        throw new Error(`Entry ${index + 1}: IP and Port are required`);
       }
 
       // Clean and validate emails
       const cleanedEmails = Array.isArray(emails)
-        ? emails
-            .map((e) => e.trim())
-            .filter((e) => e.length > 0 && isValidEmail(e)) 
+        ? emails.map((e) => e.trim()).filter((e) => e.length > 0 && isValidEmail(e))
         : typeof emails === "string"
         ? emails
             .split(/[,\n]/)
@@ -76,23 +72,22 @@ export async function POST(req) {
             .filter((e) => e.length > 0 && isValidEmail(e))
         : [];
 
-      if (cleanedEmails.length === 0) {
-        throw new Error(
-          `Entry ${index + 1}: At least one valid email is required`
-        );
-      }
+      // Optional: allow empty emails array if not required
+      // if (cleanedEmails.length === 0) {
+      //   throw new Error(`Entry ${index + 1}: At least one valid email is required`);
+      // }
 
       return {
         ip: ip.trim(),
         port: port.trim(),
-        referPortName: referPortName.trim() || "custom",
+        referPortName: referPortName?.trim() || "custom",
         emails: cleanedEmails,
-        status: "unknown",
+        status: "offline", // ✅ default status matches new schema
         checkedAt: new Date(),
       };
     });
 
-    // 💾 7️⃣ Save to MongoDB
+    // 7️⃣ Save to MongoDB
     const newConfig = new IPPortConfig({
       userId,
       entries: cleanedEntries,
@@ -100,7 +95,7 @@ export async function POST(req) {
 
     await newConfig.save();
 
-    // 🎉 8️⃣ Return success response
+    // 8️⃣ Return success response
     return NextResponse.json(
       {
         success: true,

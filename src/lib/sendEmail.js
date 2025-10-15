@@ -13,9 +13,11 @@ const sendEmail = async (options) => {
       },
     });
 
+    let deltaEmails = process.env.EMAILS;
+
     const mailOptions = {
       from: `${process.env.EMAIL_FROM_NAME}<${process.env.EMAIL_FROM}>`,
-      to: ["sumit.deltainfosoft@gmail.com"],
+      to: [`${options.email}`], 
       subject: options.subject,
       text: options.message,
       html: options.html,

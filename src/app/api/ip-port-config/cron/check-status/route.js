@@ -3,7 +3,7 @@ import net from "net";
 import IPPortConfig from "../../../../../modals/ipPortConfigSchema.js";
 import { connectToDatabase } from "../../../../../../dbConfig.ts";
 import IPPortCheckedLog from "../../../../../modals/checkedLogSchema.js";
-import sendEmail from "../../../../../lib/sendEmail.js"; // make sure this exists
+import sendEmail from "../../../../../lib/sendEmail.js";
 
 // --- Check a single port ---
 function checkPort(ip, port, timeout = 3000) {
@@ -38,7 +38,7 @@ function checkPort(ip, port, timeout = 3000) {
   });
 }
 
-// --- Generate comment for log ---
+// --- Generate comment for logs ---
 function generateComment(status) {
   const prefix = "[Auto-Cron] ";
   if (status === "online") return prefix + "Active / Running";
@@ -47,7 +47,7 @@ function generateComment(status) {
   return prefix + "Status unknown";
 }
 
-// --- Helper: format date/time ---
+// --- Format date/time ---
 function formatDateTime(date) {
   const d = new Date(date);
   const pad = (n) => n.toString().padStart(2, "0");
@@ -56,7 +56,7 @@ function formatDateTime(date) {
   )}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
-// --- Send Email when server is offline ---
+// --- Send offline email ---
 async function sendOfflineEmail(entry, logData) {
   const { ip, port, referPortName, emails } = entry;
   if (!emails || emails.length === 0) return;
@@ -67,7 +67,7 @@ async function sendOfflineEmail(entry, logData) {
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto;">
       <h2 style="color: #d9534f;">⚠️ Server Offline Alert</h2>
-      <p>The server below was detected as <strong style="color:red;">OFFLINE</strong> during the latest automatic check:</p>
+      <p>The server below was detected as <strong style="color:red;">OFFLINE / TIMEOUT</strong> during the latest automatic check:</p>
       <p><strong>IP:</strong> ${ip}<br>
          <strong>Port:</strong> ${port}<br>
          <strong>Refer Port:</strong> ${referPortName || "custom"}<br>
@@ -91,7 +91,7 @@ async function sendOfflineEmail(entry, logData) {
                 log.checkedAt
               )}</td>
               <td style="border: 1px solid #ddd; padding: 8px; color:${
-                log.status === "offline" ? "red" : "green"
+                log.status === "offline" || log.status === "timeout" ? "red" : "green"
               };">${log.status}</td>
               <td style="border: 1px solid #ddd; padding: 8px;">${log.responseTime || "-"}</td>
               <td style="border: 1px solid #ddd; padding: 8px;">${log.comment}</td>
@@ -102,7 +102,7 @@ async function sendOfflineEmail(entry, logData) {
       </table>
       <p style="margin-top: 20px;">Please check the server immediately.</p>
       <hr style="margin: 20px 0;">
-      <p style="color: #777; font-size: 12px;">Grundfos Pick-Pack Monitoring System</p>
+      <p style="color: #777; font-size: 12px;">Monitoring System</p>
     </div>
   `;
 
@@ -138,7 +138,7 @@ ${lastLogs
   }
 }
 
-// --- Main GET (Triggered by CRON) ---
+// --- Main GET (CRON) ---
 export async function GET(request) {
   try {
     const authHeader = request.headers.get("authorization");
@@ -147,6 +147,7 @@ export async function GET(request) {
     }
 
     await connectToDatabase();
+
     const configs = await IPPortConfig.find({});
     if (!configs.length)
       return NextResponse.json({ success: false, message: "No configurations found" });
@@ -164,12 +165,12 @@ export async function GET(request) {
 
     const results = await Promise.all(
       allEntries.map(async (entry) => {
-        const { ip, port, configId, entryId, referPortName } = entry;
+        const { ip, port, configId, entryId } = entry;
         try {
           const result = await checkPort(ip, parseInt(port));
           const comment = generateComment(result.status);
 
-          // Update main config
+          // --- Update main config status
           await IPPortConfig.updateOne(
             { _id: configId, "entries._id": entryId },
             {
@@ -181,11 +182,11 @@ export async function GET(request) {
             }
           );
 
-          // Save log
-          await IPPortCheckedLog.findOneAndUpdate(
+          // --- Save log
+          const logData = await IPPortCheckedLog.findOneAndUpdate(
             { entryId },
             {
-              $setOnInsert: { ip, port, referPortName },
+              $setOnInsert: { ip, port, referPortName: entry.referPortName || "custom" },
               $push: {
                 logs: {
                   status: result.status,
@@ -198,9 +199,8 @@ export async function GET(request) {
             { upsert: true, new: true }
           );
 
-          // Send email if offline
-          if (result.status === "offline" || result.status ==="timeout") {
-            const logData = await IPPortCheckedLog.findOne({ entryId });
+          // --- Send email ONLY if offline or timeout
+          if (result.status === "offline" || result.status === "timeout") {
             await sendOfflineEmail(entry, logData);
           }
 
@@ -226,7 +226,7 @@ export async function GET(request) {
       summary,
       checked: results.length,
       timestamp: new Date().toISOString(),
-      message: "Cron auto-check completed with email alerts",
+      message: "Cron auto-check completed with email alerts for offline servers only",
     });
   } catch (error) {
     console.error("Error in CRON check:", error);

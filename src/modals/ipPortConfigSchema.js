@@ -17,8 +17,8 @@ const ipPortEntrySchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ["online", "offline", "timeout", "checking", "unknown"],
-    default: "unknown",
+    enum: ["online", "offline"],
+    default: "offline",
   },
   responseTime: {
     type: Number,
@@ -54,16 +54,12 @@ const ipPortConfigSchema = new mongoose.Schema(
       type: [ipPortEntrySchema],
       required: true,
       validate: {
-        validator: function (entries) {
-          return Array.isArray(entries) && entries.length > 0;
-        },
+        validator: (entries) => Array.isArray(entries) && entries.length > 0,
         message: "At least one IP/Port entry is required",
       },
     },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
 ipPortConfigSchema.index({ userId: 1, createdAt: -1 });

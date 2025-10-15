@@ -9,7 +9,6 @@ const useIPPortStore = create((set, get) => ({
   isModalOpen: false,
   isLoading: false,
   isEditing: false,
-  checkingEntries: new Set(),
 
   // Modal Actions
   openModal: () => set({ isModalOpen: true }),
@@ -21,8 +20,6 @@ const useIPPortStore = create((set, get) => ({
 
   // Fetch all IP/Port configurations
   fetchConfigurations: async (silent = false) => {
-    if (get().isChecking) return;
-
     if (!silent) set({ isLoading: true });
     try {
       const { data } = await axios.get("/api/ip-port-config/get");
@@ -126,14 +123,6 @@ const useIPPortStore = create((set, get) => ({
 
     set({ isChecking: true });
 
-    // Mark all entries as checking
-    set((state) => ({
-      entries: state.entries.map((config) => ({
-        ...config,
-        entries: config.entries.map((e) => ({ ...e, status: "checking" })),
-      })),
-    }));
-
     try {
       const allEntries = entries.flatMap((config) =>
         config.entries.map((e) => ({
@@ -147,28 +136,28 @@ const useIPPortStore = create((set, get) => ({
       });
 
       if (response.data.success && Array.isArray(response.data.results)) {
-        let resultIndex = 0;
+        const resultsMap = Object.fromEntries(
+          response.data.results.map((r) => [r.entryId, r])
+        );
+
         set((state) => ({
           entries: state.entries.map((config) => ({
             ...config,
             entries: config.entries.map((entry) => {
-              const result = response.data.results[resultIndex++];
-              return {
-                ...entry,
-                status: result.status,
-                responseTime: result.responseTime,
-                checkedAt: new Date(),
-                comment: result.comment,
-              };
+              const result = resultsMap[entry._id];
+              return result
+                ? {
+                    ...entry,
+                    status: result.status,
+                    responseTime: result.responseTime,
+                    checkedAt: new Date(),
+                    comment: result.comment,
+                  }
+                : entry;
             }),
           })),
         }));
-
-        toast.success(
-          `Status check completed for ${allEntries.length} ${
-            allEntries.length === 1 ? "entry" : "entries"
-          }`
-        );
+        toast.success("checked all status")
       } else {
         throw new Error("Invalid response format");
       }
@@ -242,6 +231,7 @@ const useIPPortStore = create((set, get) => ({
       );
       if (response.data.success) {
         toast.success("Config updated successfully!");
+        await get().fetchConfigurations();
         return response;
       } else {
         toast.error(response.data.message || "Failed to update config");
@@ -255,7 +245,7 @@ const useIPPortStore = create((set, get) => ({
     }
   },
 
-  // Total stats
+  // Total stats (updated to only include online/offline)
   getTotalStats: () => {
     const { entries } = get();
     const all = entries.flatMap((c) => c.entries || []);
@@ -263,10 +253,8 @@ const useIPPortStore = create((set, get) => ({
       total: all.length,
       online: all.filter((e) => e.status === "online").length,
       offline: all.filter((e) => e.status === "offline").length,
-      checking: all.filter((e) => e.status === "checking").length,
     };
   },
-  
 }));
 
 export default useIPPortStore;
