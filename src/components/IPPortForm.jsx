@@ -185,20 +185,28 @@ const IPPortForm = ({ configId, entryId }) => {
 
   // 💾 Submit new configuration
   const handleSubmit = async () => {
-    const formattedEntries = entries.map(({ ip, port, referPortName, emails }) => ({
-      ip,
-      port,
-      referPortName,
-      emails: typeof emails === "string"
-        ? emails.split(/[,\n]/).map((e) => e.trim()).filter(Boolean)
-        : emails,
-    }));
+    const formattedEntries = entries.map(
+      ({ ip, port, referPortName, emails }) => ({
+        ip,
+        port,
+        referPortName,
+        emails:
+          typeof emails === "string"
+            ? emails
+                .split(/[,\n]/)
+                .map((e) => e.trim())
+                .filter(Boolean)
+            : emails,
+      })
+    );
 
     const result = await addConfiguration({ entries: formattedEntries });
 
     if (result.success) {
       toast.success("Configuration saved successfully!");
-      setEntries([{ id: "1", ip: "", port: "", referPortName: "", emails: "" }]);
+      setEntries([
+        { id: "1", ip: "", port: "", referPortName: "", emails: "" },
+      ]);
       setNextId(2);
       checkAllStatus();
     }
@@ -206,14 +214,20 @@ const IPPortForm = ({ configId, entryId }) => {
 
   // ✏️ Update existing configuration
   const handleUpdate = async () => {
-    const formattedEntries = entries.map(({ ip, port, referPortName, emails }) => ({
-      ip,
-      port,
-      referPortName,
-      emails: typeof emails === "string"
-        ? emails.split(/[,\n]/).map((e) => e.trim()).filter(Boolean)
-        : emails,
-    }));
+    const formattedEntries = entries.map(
+      ({ ip, port, referPortName, emails }) => ({
+        ip,
+        port,
+        referPortName,
+        emails:
+          typeof emails === "string"
+            ? emails
+                .split(/[,\n]/)
+                .map((e) => e.trim())
+                .filter(Boolean)
+            : emails,
+      })
+    );
 
     try {
       const { data } = await updateConfiguration({
@@ -265,7 +279,6 @@ const IPPortForm = ({ configId, entryId }) => {
 
   return (
     <>
-
       <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
         <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl my-8 border border-gray-200 max-h-[90vh] flex flex-col">
           {/* Professional Header */}
@@ -277,7 +290,9 @@ const IPPortForm = ({ configId, entryId }) => {
                 </div>
                 <div>
                   <h1 className="text-2xl font-bold text-white">
-                    {isEditing ? "Edit Configuration" : "IP & PORT Configuration"}
+                    {isEditing
+                      ? "Edit Configuration"
+                      : "IP & PORT Configuration"}
                   </h1>
                   <p className="text-white/80 text-sm mt-1">
                     Configure your server endpoints and monitoring settings
@@ -304,8 +319,12 @@ const IPPortForm = ({ configId, entryId }) => {
                       <FileSpreadsheet className="h-5 w-5 text-white" />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-gray-800">Bulk Import</h3>
-                      <p className="text-sm text-gray-600">Add multiple configurations at once</p>
+                      <h3 className="font-semibold text-gray-800">
+                        Bulk Import
+                      </h3>
+                      <p className="text-sm text-gray-600">
+                        Add multiple configurations at once
+                      </p>
                     </div>
                   </div>
                   <Button
@@ -325,12 +344,34 @@ const IPPortForm = ({ configId, entryId }) => {
                         <div>
                           <p className="font-medium mb-1">Supported Formats:</p>
                           <ul className="space-y-1 list-disc list-inside ml-2">
-                            <li><span className="font-mono bg-gray-100 px-1 rounded">192.168.1.1:3000</span> - IP with port</li>
-                            <li><span className="font-mono bg-gray-100 px-1 rounded">192.168.1.1 3000</span> - IP and port separated by space</li>
-                            <li><span className="font-mono bg-gray-100 px-1 rounded">192.168.1.1</span> - IP only</li>
-                            <li><span className="font-mono bg-gray-100 px-1 rounded">192.168.1.1, 3000, postgres, admin@example.com</span> - Full CSV format</li>
+                            <li>
+                              <span className="font-mono bg-gray-100 px-1 rounded">
+                                192.168.1.1:3000
+                              </span>{" "}
+                              - IP with port
+                            </li>
+                            <li>
+                              <span className="font-mono bg-gray-100 px-1 rounded">
+                                192.168.1.1 3000
+                              </span>{" "}
+                              - IP and port separated by space
+                            </li>
+                            <li>
+                              <span className="font-mono bg-gray-100 px-1 rounded">
+                                192.168.1.1
+                              </span>{" "}
+                              - IP only
+                            </li>
+                            <li>
+                              <span className="font-mono bg-gray-100 px-1 rounded">
+                                192.168.1.1, 3000, postgres, admin@example.com
+                              </span>{" "}
+                              - Full CSV format
+                            </li>
                           </ul>
-                          <p className="mt-2 text-gray-600">Enter one configuration per line</p>
+                          <p className="mt-2 text-gray-600">
+                            Enter one configuration per line
+                          </p>
                         </div>
                       </div>
                     </div>
@@ -370,7 +411,9 @@ const IPPortForm = ({ configId, entryId }) => {
             {/* Individual Entries Section */}
             <div>
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-gray-800 text-lg">Configuration Entries</h3>
+                <h3 className="font-semibold text-gray-800 text-lg">
+                  Configuration Entries
+                </h3>
                 <span className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
                   {entries.length} {entries.length === 1 ? "entry" : "entries"}
                 </span>
@@ -394,33 +437,45 @@ const IPPortForm = ({ configId, entryId }) => {
                       <div className="bg-[#1ca5b3] text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center">
                         {index + 1}
                       </div>
-                      <span className="text-xs text-gray-500 font-medium">Configuration Entry</span>
+                      <span className="text-xs text-gray-500 font-medium">
+                        Configuration Entry
+                      </span>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
                       <div className="sm:col-span-3">
-                        <label className="text-xs font-medium text-gray-600 mb-1 block sm:hidden">IP Address</label>
+                        <label className="text-xs font-medium text-gray-600 mb-1 block sm:hidden">
+                          IP Address
+                        </label>
                         <Input
                           type="text"
                           value={ent.ip}
-                          onChange={(e) => updateEntry(ent.id, "ip", e.target.value)}
+                          onChange={(e) =>
+                            updateEntry(ent.id, "ip", e.target.value)
+                          }
                           onPaste={(e) => handlePaste(e, ent.id, "ip")}
                           placeholder="192.168.1.1"
                           className="border-gray-300 focus:border-[#1ca5b3] focus:ring-[#1ca5b3]"
                         />
                       </div>
                       <div className="sm:col-span-2">
-                        <label className="text-xs font-medium text-gray-600 mb-1 block sm:hidden">Port</label>
+                        <label className="text-xs font-medium text-gray-600 mb-1 block sm:hidden">
+                          Port
+                        </label>
                         <Input
                           type="text"
                           value={ent.port}
-                          onChange={(e) => updateEntry(ent.id, "port", e.target.value)}
+                          onChange={(e) =>
+                            updateEntry(ent.id, "port", e.target.value)
+                          }
                           placeholder="3000"
                           className="border-gray-300 focus:border-[#1ca5b3] focus:ring-[#1ca5b3]"
                         />
                       </div>
                       <div className="sm:col-span-3">
-                        <label className="text-xs font-medium text-gray-600 mb-1 block sm:hidden">Refer Port Name</label>
+                        <label className="text-xs font-medium text-gray-600 mb-1 block sm:hidden">
+                          Refer Port Name
+                        </label>
                         <Input
                           type="text"
                           value={ent.referPortName}
@@ -432,7 +487,9 @@ const IPPortForm = ({ configId, entryId }) => {
                         />
                       </div>
                       <div className="sm:col-span-3">
-                        <label className="text-xs font-medium text-gray-600 mb-1 block sm:hidden">Emails</label>
+                        <label className="text-xs font-medium text-gray-600 mb-1 block sm:hidden">
+                          Emails
+                        </label>
                         <Input
                           type="text"
                           value={ent.emails}
@@ -466,42 +523,41 @@ const IPPortForm = ({ configId, entryId }) => {
                 <Button
                   type="button"
                   onClick={addEntry}
-                  className="bg-gradient-to-r from-[#1ca5b3]/10 to-[#0e7c87]/10 text-[#1ca5b3] hover:from-[#1ca5b3]/20 hover:to-[#0e7c87]/20 flex w-full justify-center items-center border-2 border-dashed border-[#1ca5b3] rounded-lg py-3 font-medium transition-all"
+                  className="bg-gray-100 mt-2 text-[#1ca5b3] hover:bg-gray-200 flex w-full justify-center items-center border-2 border-dashed border-[#1ca5b3] rounded-lg py-3 font-medium transition-all"
                 >
                   <Plus size={18} />
                   <span className="ml-2">Add Another Entry</span>
                 </Button>
               )}
             </div>
-
           </div>
 
           {/* Fixed Action Buttons Footer */}
           <div className="p-6 border-t-2 border-gray-200 bg-gray-50 rounded-b-2xl flex flex-col sm:flex-row items-center gap-3 justify-end flex-shrink-0">
+            <Button
+              onClick={handleClose}
+              className="w-full sm:w-auto bg-white border-2 border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 px-8 py-2.5 font-medium"
+              disabled={isLoading}
+            >
+              Cancel
+            </Button>
+            {!isEditing ? (
               <Button
-                onClick={handleClose}
-                className="w-full sm:w-auto bg-white border-2 border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 px-8 py-2.5 font-medium"
+                onClick={handleSubmit}
+                className="w-full sm:w-auto bg-gradient-to-r from-[#1ca5b3] to-[#0e7c87] hover:from-[#0e7c87] hover:to-[#1ca5b3] text-white px-8 py-2.5 font-medium shadow-lg shadow-[#1ca5b3]/30 transition-all"
                 disabled={isLoading}
               >
-                Cancel
+                {isLoading ? "Saving..." : "Save Configuration"}
               </Button>
-              {!isEditing ? (
-                <Button
-                  onClick={handleSubmit}
-                  className="w-full sm:w-auto bg-gradient-to-r from-[#1ca5b3] to-[#0e7c87] hover:from-[#0e7c87] hover:to-[#1ca5b3] text-white px-8 py-2.5 font-medium shadow-lg shadow-[#1ca5b3]/30 transition-all"
-                  disabled={isLoading}
-                >
-                  {isLoading ? "Saving..." : "Save Configuration"}
-                </Button>
-              ) : (
-                <Button
-                  onClick={handleUpdate}
-                  className="w-full sm:w-auto bg-gradient-to-r from-[#1ca5b3] to-[#0e7c87] hover:from-[#0e7c87] hover:to-[#1ca5b3] text-white px-8 py-2.5 font-medium shadow-lg shadow-[#1ca5b3]/30 transition-all"
-                  disabled={isLoading}
-                >
-                  {isLoading ? "Updating..." : "Update Configuration"}
-                </Button>
-              )}
+            ) : (
+              <Button
+                onClick={handleUpdate}
+                className="w-full sm:w-auto bg-gradient-to-r from-[#1ca5b3] to-[#0e7c87] hover:from-[#0e7c87] hover:to-[#1ca5b3] text-white px-8 py-2.5 font-medium shadow-lg shadow-[#1ca5b3]/30 transition-all"
+                disabled={isLoading}
+              >
+                {isLoading ? "Updating..." : "Update Configuration"}
+              </Button>
+            )}
           </div>
         </div>
       </div>

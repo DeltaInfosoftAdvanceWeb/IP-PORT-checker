@@ -98,6 +98,22 @@ export async function POST(req) {
         { status: 400 }
       );
     }
+    // Check for duplicates before updating
+    const existingDuplicate = await IPPortConfig.findOne({
+      _id: { $ne: configId }, // exclude current config
+      "entries.ip": entry.ip.trim(),
+      "entries.port": entry.port.trim(),
+    });
+
+    if (existingDuplicate) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: `Duplicate IP/Port detected: ${entry.ip.trim()}:${entry.port.trim()} already exists in another configuration.`,
+        },
+        { status: 400 }
+      );
+    }
 
     // 7️⃣ Update document
     const updateConfig = await IPPortConfig.findOneAndUpdate(
@@ -124,14 +140,20 @@ export async function POST(req) {
         { status: 404 }
       );
     }
-    // --- Update log document if it exists ---
     const logDoc = await IPPortCheckedLog.findOne({ entryId });
     if (logDoc) {
-      logDoc.ip = entry.ip.trim();
-      logDoc.port = entry.port.trim();
-      logDoc.referPortName = entry.referPortName.trim();
-      await logDoc.save();
+      await IPPortCheckedLog.updateOne(
+        { entryId },
+        {
+          $set: {
+            ip: entry.ip.trim(),
+            port: entry.port.trim(),
+            referPortName: entry.referPortName.trim(),
+          },
+        }
+      );
     }
+
     // 8️⃣ Return success response
     return NextResponse.json(
       {

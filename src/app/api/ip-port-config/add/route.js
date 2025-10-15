@@ -88,16 +88,21 @@ export async function POST(req) {
       };
     });
 
-    const duplicate = await IPPortConfig.findOne({
-      ip: cleanedEntries.ip,
-      port: cleanedEntries.port,
-    });
-    
-    if (duplicate) {
-      return NextResponse.json(
-        { success: false, message: "Ip and Port pair is already exists." },
-        { status: 400 }
-      );
+    for (const entry of cleanedEntries) {
+      const duplicate = await IPPortConfig.findOne({
+        "entries.ip": entry.ip,
+        "entries.port": entry.port,
+      });
+
+      if (duplicate) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: `IP and Port pair ${entry.ip}:${entry.port} already exists.`,
+          },
+          { status: 400 }
+        );
+      }
     }
 
     // 7️⃣ Save to MongoDB
