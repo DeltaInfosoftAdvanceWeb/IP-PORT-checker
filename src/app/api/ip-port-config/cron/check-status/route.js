@@ -48,15 +48,33 @@ function generateComment(status) {
 }
 
 // --- Format date/time ---
-function formatDateTime(date) {
-  const d = new Date(date);
-  const pad = (n) => n.toString().padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(
-    d.getHours()
-  )}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+function formatDateTime(date, withTime = true) {
+  if (!date) return "-";
+
+  try {
+    const d = new Date(date); // ✅ use a different variable name
+
+    const options = {
+      timeZone: "Asia/Kolkata",
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    };
+
+    if (withTime) {
+      options.hour = "2-digit";
+      options.minute = "2-digit";
+      options.hour12 = false;
+    }
+
+    const formatted = d.toLocaleString("en-GB", options);
+    return formatted.replace(",", "").replace(/\s/g, " ");
+  } catch (error) {
+    console.error("Error formatting date:", error);
+    return "Date error";
+  }
 }
 
-// --- Send offline email ---
 async function sendOfflineEmail(entry, logData) {
   const { ip, port, referPortName, emails } = entry;
   if (!emails || emails.length === 0) return;
