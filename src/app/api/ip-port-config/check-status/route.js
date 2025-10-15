@@ -14,19 +14,19 @@ function checkPort(ip, port, timeout = 3000) {
 
     socket.setTimeout(timeout);
 
-    socket.on("connect", () => { 
+    socket.on("connect", () => {
       responseTime = Date.now() - startTime;
       status = "online";
       socket.destroy();
     });
 
     socket.on("timeout", () => {
-      status = "timeout";
+      status = "offline"; // changed to match schema
       socket.destroy();
     });
 
     socket.on("error", () => {
-      status = "offline";
+      status = "offline"; // changed to match schema
     });
 
     socket.on("close", () => {
@@ -42,8 +42,6 @@ function generateComment(status, isManual = false) {
   const prefix = isManual ? "[Manual] " : "[Auto] ";
   if (status === "online") return prefix + "Active / Running";
   if (status === "offline") return prefix + "Server went offline / unreachable";
-  if (status === "timeout") return prefix + "Connection timed out";
-  if (status === "checking") return prefix + "Checking status...";
   return prefix + "Status unknown";
 }
 
@@ -102,11 +100,13 @@ async function performStatusCheck(isManual = false) {
           entryId,
           ip,
           port,
-          status: "error",
+          status: "offline", // changed to match schema
           responseTime: null,
           checkedAt: new Date(),
           referPortName,
-          comment: isManual ? "[Manual] Error while checking" : "[Auto] Error while checking",
+          comment: isManual
+            ? "[Manual] Error while checking"
+            : "[Auto] Error while checking",
         };
       }
     })
@@ -138,7 +138,9 @@ async function performStatusCheck(isManual = false) {
   return {
     success: true,
     results,
-    message: isManual ? "Manual status check completed" : "Automatic status check completed",
+    message: isManual
+      ? "Manual status check completed"
+      : "Automatic status check completed",
   };
 }
 
