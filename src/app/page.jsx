@@ -16,7 +16,7 @@ import { Popconfirm, Spin, Select, Input } from "antd";
 import { QuestionCircleOutlined } from "@ant-design/icons";
 import useIPPortStore from "@/store/useIPPortStore";
 import IPPortForm from "@/components/IPPortForm";
-import DevAutoChecker from '@/components/DevAutoChecker'
+import DevAutoChecker from "@/components/DevAutoChecker";
 
 const { Option } = Select;
 
@@ -85,11 +85,17 @@ const Home = () => {
     openModal();
   };
 
-  
   // --- Fetch Configurations on Mount ---
   useEffect(() => {
     fetchConfigurations();
+  }, []);
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchConfigurations(true); 
+    }, 60000); 
+
+    return () => clearInterval(interval);
   }, []);
 
   const stats = getTotalStats();
