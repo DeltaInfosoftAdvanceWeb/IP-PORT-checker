@@ -47,7 +47,8 @@ function generateComment(status) {
   return prefix + "Status unknown";
 }
 
-// --- Format date/time ---function formatDateTime(date, withTime = true) {
+// --- Format date/time ---
+function formatDateTime(date, withTime = true) {
   if (!date) return "-";
 
   try {
@@ -72,6 +73,7 @@ function generateComment(status) {
     console.error("Error formatting date:", error);
     return "Date error";
   }
+}
 
 async function sendOfflineEmail(entry, logData) {
   const { ip, port, referPortName, emails } = entry;
