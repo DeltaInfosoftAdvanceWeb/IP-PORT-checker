@@ -36,6 +36,10 @@ export default function SignupPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showAccessPassword, setShowAccessPassword] = useState(false);
+  const [accessGranted, setAccessGranted] = useState(false);
+  const [accessCode, setAccessCode] = useState("");
+  const [accessCodeError, setAccessCodeError] = useState("");
   const router = useRouter();
 
   const form = useForm({
@@ -47,6 +51,34 @@ export default function SignupPage() {
       confirmPassword: "",
     },
   });
+
+  const handleAccessCodeSubmit = async (e) => {
+    e.preventDefault();
+    setAccessCodeError("");
+
+    if (!accessCode.trim()) {
+      setAccessCodeError("Please enter the access code");
+      return;
+    }
+
+    try {
+      // Verify access code with backend
+      const { data } = await axios.post("/api/verify-access-code", {
+        accessCode: accessCode,
+      });
+
+      if (data.success) {
+        setAccessGranted(true);
+        toast.success("Access granted! Please complete the signup form.");
+      } else {
+        setAccessCodeError("Invalid access code. Please try again.");
+        toast.error("Invalid access code");
+      }
+    } catch (error) {
+      setAccessCodeError("Invalid access code. Please try again.");
+      toast.error(error?.response?.data?.message || "Invalid access code");
+    }
+  };
 
   async function onSubmit(values) {
     setIsLoading(true);
@@ -85,14 +117,79 @@ export default function SignupPage() {
             className="object-contain"
           />
         </div>
-        <h1 className="text-3xl font-bold text-center text-[#0e7c87] mb-2">
-          Create an Account
-        </h1>
-        <p className="text-gray-500 text-center mb-8">
-          Request access to start monitoring
-        </p>
 
-        <Form {...form}>
+        {!accessGranted ? (
+          // Access Code Form
+          <>
+            <h1 className="text-3xl font-bold text-center text-[#0e7c87] mb-2">
+              Access Required
+            </h1>
+            <p className="text-gray-500 text-center mb-8">
+              Enter the access code to continue with signup
+            </p>
+
+            <form onSubmit={handleAccessCodeSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Access Code
+                </label>
+                <div className="relative">
+                  <Input
+                    type={showAccessPassword ? "text" : "password"}
+                    placeholder="Enter access code"
+                    className="rounded-lg border-gray-300 pr-10"
+                    value={accessCode}
+                    onChange={(e) => {
+                      setAccessCode(e.target.value);
+                      setAccessCodeError("");
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                    onClick={() => setShowAccessPassword(!showAccessPassword)}
+                  >
+                    {showAccessPassword ? (
+                      <EyeOff className="h-5 w-5 text-[#1ca5b3]" />
+                    ) : (
+                      <Eye className="h-5 w-5 text-[#1ca5b3]" />
+                    )}
+                  </button>
+                </div>
+                {accessCodeError && (
+                  <p className="text-red-500 text-sm mt-1">{accessCodeError}</p>
+                )}
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full bg-[#1ca5b3] hover:bg-[#0e7c87] text-white font-medium rounded-lg py-2"
+              >
+                Verify Access Code
+              </Button>
+            </form>
+
+            <p className="text-center text-sm text-gray-500 mt-4">
+              Already have an account?{" "}
+              <button
+                className="text-[#1ca5b3] hover:text-[#0e7c87] font-medium"
+                onClick={() => router.push("/login")}
+              >
+                Log in
+              </button>
+            </p>
+          </>
+        ) : (
+          // Signup Form (shown after access is granted)
+          <>
+            <h1 className="text-3xl font-bold text-center text-[#0e7c87] mb-2">
+              Create an Account
+            </h1>
+            <p className="text-gray-500 text-center mb-8">
+              Request access to start monitoring
+            </p>
+
+            <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
@@ -223,6 +320,8 @@ export default function SignupPage() {
             Log in
           </button>
         </p>
+          </>
+        )}
       </div>
     </div>
   );

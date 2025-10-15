@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, X } from "lucide-react";
+import { Plus, X, Server, Upload, FileSpreadsheet, Info } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
@@ -25,6 +25,8 @@ const IPPortForm = ({ configId, entryId }) => {
     { id: "1", ip: "", port: "", referPortName: "", emails: "" },
   ]);
   const [nextId, setNextId] = useState(2);
+  const [bulkInput, setBulkInput] = useState("");
+  const [showBulkInput, setShowBulkInput] = useState(false);
 
   // ➕ Add new entry
   const addEntry = () => {
@@ -54,6 +56,70 @@ const IPPortForm = ({ configId, entryId }) => {
   // 🧠 Keep email as raw text — only split during submit
   const updateEmails = (id, value) => {
     updateEntry(id, "emails", value);
+  };
+
+  // 📋 Process bulk input
+  const processBulkInput = () => {
+    if (!bulkInput.trim()) {
+      toast.error("Please enter configuration data");
+      return;
+    }
+
+    const lines = bulkInput.split("\n").filter((line) => line.trim());
+    const newEntries = [];
+    let currentId = nextId;
+
+    lines.forEach((line) => {
+      const trimmedLine = line.trim();
+
+      // Support formats: IP:PORT, IP PORT, or just IP
+      let ip = "";
+      let port = "";
+      let referPortName = "";
+      let emails = "";
+
+      if (trimmedLine.includes(",")) {
+        // CSV format: IP, PORT, NAME, EMAILS
+        const parts = trimmedLine.split(",").map((s) => s.trim());
+        ip = parts[0] || "";
+        port = parts[1] || "";
+        referPortName = parts[2] || "";
+        emails = parts[3] || "";
+      } else if (trimmedLine.includes(":")) {
+        // IP:PORT format
+        const [ipPart, portPart] = trimmedLine.split(":").map((s) => s.trim());
+        ip = ipPart;
+        port = portPart;
+      } else if (trimmedLine.includes(" ")) {
+        // IP PORT format
+        const parts = trimmedLine.split(/\s+/);
+        ip = parts[0] || "";
+        port = parts[1] || "";
+      } else {
+        // Just IP
+        ip = trimmedLine;
+      }
+
+      if (ip) {
+        newEntries.push({
+          id: currentId++,
+          ip,
+          port,
+          referPortName,
+          emails,
+        });
+      }
+    });
+
+    if (newEntries.length > 0) {
+      setEntries(newEntries);
+      setNextId(currentId);
+      setBulkInput("");
+      setShowBulkInput(false);
+      toast.success(`${newEntries.length} configuration(s) added`);
+    } else {
+      toast.error("No valid configurations found");
+    }
   };
 
   // 📋 Handle paste of multiple IPs or ports
@@ -200,15 +266,117 @@ const IPPortForm = ({ configId, entryId }) => {
   return (
     <>
 
-      <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/20 p-4 overflow-y-auto">
-        <div className="bg-gray-50 p-4 sm:p-6 rounded-md w-full max-w-6xl my-4">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
-            <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 text-center mb-6">
-              {isEditing ? "Edit IP & PORT Configuration" : "IP & PORT Configuration"}
-            </h1>
+      <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl my-8 border border-gray-200 max-h-[90vh] flex flex-col">
+          {/* Professional Header */}
+          <div className="bg-gradient-to-r from-[#1ca5b3] to-[#0e7c87] p-6 rounded-t-2xl">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="bg-white/20 backdrop-blur-sm p-3 rounded-xl">
+                  <Server className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold text-white">
+                    {isEditing ? "Edit Configuration" : "IP & PORT Configuration"}
+                  </h1>
+                  <p className="text-white/80 text-sm mt-1">
+                    Configure your server endpoints and monitoring settings
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={handleClose}
+                className="text-white/80 hover:text-white hover:bg-white/20 p-2 rounded-lg transition-all"
+              >
+                <X size={24} />
+              </button>
+            </div>
+          </div>
 
-            <div className="space-y-4">
-              <div className="border rounded border-gray-200 py-6 px-3 space-y-3">
+          {/* Scrollable Content Area */}
+          <div className="p-6 space-y-6 overflow-y-auto flex-1">
+            {/* Bulk Input Section */}
+            {!isEditing && (
+              <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl p-5 border-2 border-dashed border-[#1ca5b3]">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-[#1ca5b3] p-2 rounded-lg">
+                      <FileSpreadsheet className="h-5 w-5 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-gray-800">Bulk Import</h3>
+                      <p className="text-sm text-gray-600">Add multiple configurations at once</p>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={() => setShowBulkInput(!showBulkInput)}
+                    className="bg-[#1ca5b3] hover:bg-[#0e7c87] text-white text-sm"
+                  >
+                    {showBulkInput ? "Hide" : "Show"} Bulk Input
+                  </Button>
+                </div>
+
+                {showBulkInput && (
+                  <div className="space-y-3">
+                    <div className="bg-white/70 backdrop-blur-sm rounded-lg p-3 border border-[#1ca5b3]/30">
+                      <div className="flex items-start gap-2 text-xs text-gray-700">
+                        <Info className="h-4 w-4 text-[#1ca5b3] mt-0.5 flex-shrink-0" />
+                        <div>
+                          <p className="font-medium mb-1">Supported Formats:</p>
+                          <ul className="space-y-1 list-disc list-inside ml-2">
+                            <li><span className="font-mono bg-gray-100 px-1 rounded">192.168.1.1:3000</span> - IP with port</li>
+                            <li><span className="font-mono bg-gray-100 px-1 rounded">192.168.1.1 3000</span> - IP and port separated by space</li>
+                            <li><span className="font-mono bg-gray-100 px-1 rounded">192.168.1.1</span> - IP only</li>
+                            <li><span className="font-mono bg-gray-100 px-1 rounded">192.168.1.1, 3000, postgres, admin@example.com</span> - Full CSV format</li>
+                          </ul>
+                          <p className="mt-2 text-gray-600">Enter one configuration per line</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <textarea
+                      value={bulkInput}
+                      onChange={(e) => setBulkInput(e.target.value)}
+                      placeholder="Paste your configurations here (one per line)&#10;Example:&#10;192.168.1.1:3000&#10;192.168.1.2, 8080, postgres, admin@example.com&#10;192.168.1.3 5432"
+                      className="w-full h-32 p-3 border-2 border-gray-300 rounded-lg focus:border-[#1ca5b3] focus:ring-2 focus:ring-[#1ca5b3]/20 outline-none font-mono text-sm resize-none"
+                    />
+
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        onClick={processBulkInput}
+                        className="flex-1 bg-[#1ca5b3] hover:bg-[#0e7c87] text-white"
+                      >
+                        <Upload size={16} />
+                        <span className="ml-2">Import Configurations</span>
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={() => {
+                          setBulkInput("");
+                          setShowBulkInput(false);
+                        }}
+                        className="bg-gray-200 hover:bg-gray-300 text-gray-700"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Individual Entries Section */}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-gray-800 text-lg">Configuration Entries</h3>
+                <span className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+                  {entries.length} {entries.length === 1 ? "entry" : "entries"}
+                </span>
+              </div>
+
+              <div className="border rounded-xl border-gray-200 py-6 px-3 space-y-3 bg-gray-50 max-h-[400px] overflow-y-auto">
                 <div className="hidden sm:grid grid-cols-12 gap-3 text-xs font-medium text-gray-500 uppercase tracking-wide pb-2">
                   <div className="col-span-3">IP Address</div>
                   <div className="col-span-2">Port</div>
@@ -217,61 +385,78 @@ const IPPortForm = ({ configId, entryId }) => {
                   <div className="col-span-1"></div>
                 </div>
 
-                {entries.map((ent) => (
+                {entries.map((ent, index) => (
                   <div
                     key={ent.id}
-                    className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center"
+                    className="bg-white rounded-lg p-4 shadow-sm border border-gray-200 hover:border-[#1ca5b3] transition-all"
                   >
-                    <div className="sm:col-span-3">
-                      <Input
-                        type="text"
-                        value={ent.ip}
-                        onChange={(e) => updateEntry(ent.id, "ip", e.target.value)}
-                        onPaste={(e) => handlePaste(e, ent.id, "ip")}
-                        placeholder="192.168.1.1"
-                      />
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="bg-[#1ca5b3] text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center">
+                        {index + 1}
+                      </div>
+                      <span className="text-xs text-gray-500 font-medium">Configuration Entry</span>
                     </div>
-                    <div className="sm:col-span-2">
-                      <Input
-                        type="text"
-                        value={ent.port}
-                        onChange={(e) => updateEntry(ent.id, "port", e.target.value)}
-                        placeholder="3000"
-                      />
-                    </div>
-                    <div className="sm:col-span-3">
-                      <Input
-                        type="text"
-                        value={ent.referPortName}
-                        onChange={(e) =>
-                          updateEntry(ent.id, "referPortName", e.target.value)
-                        }
-                        placeholder="postgres"
-                      />
-                    </div>
-                    <div className="sm:col-span-3">
-                      <Input
-                        type="text"
-                        value={ent.emails}
-                        onChange={(e) => updateEmails(ent.id, e.target.value)}
-                        placeholder="email1@example.com, email2@example.com"
-                      />
-                    </div>
-                    <div className="sm:col-span-1 flex justify-end">
-                      {!isEditing && (
-                        <Button
-                          type="button"
-                          className={`${
-                            entries.length === 1
-                              ? "cursor-not-allowed"
-                              : "text-white bg-red-600 hover:bg-red-400"
-                          } w-full sm:w-auto`}
-                          disabled={entries.length === 1}
-                          onClick={() => removeEntry(ent.id)}
-                        >
-                          <X size={18} />
-                        </Button>
-                      )}
+
+                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
+                      <div className="sm:col-span-3">
+                        <label className="text-xs font-medium text-gray-600 mb-1 block sm:hidden">IP Address</label>
+                        <Input
+                          type="text"
+                          value={ent.ip}
+                          onChange={(e) => updateEntry(ent.id, "ip", e.target.value)}
+                          onPaste={(e) => handlePaste(e, ent.id, "ip")}
+                          placeholder="192.168.1.1"
+                          className="border-gray-300 focus:border-[#1ca5b3] focus:ring-[#1ca5b3]"
+                        />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className="text-xs font-medium text-gray-600 mb-1 block sm:hidden">Port</label>
+                        <Input
+                          type="text"
+                          value={ent.port}
+                          onChange={(e) => updateEntry(ent.id, "port", e.target.value)}
+                          placeholder="3000"
+                          className="border-gray-300 focus:border-[#1ca5b3] focus:ring-[#1ca5b3]"
+                        />
+                      </div>
+                      <div className="sm:col-span-3">
+                        <label className="text-xs font-medium text-gray-600 mb-1 block sm:hidden">Refer Port Name</label>
+                        <Input
+                          type="text"
+                          value={ent.referPortName}
+                          onChange={(e) =>
+                            updateEntry(ent.id, "referPortName", e.target.value)
+                          }
+                          placeholder="postgres"
+                          className="border-gray-300 focus:border-[#1ca5b3] focus:ring-[#1ca5b3]"
+                        />
+                      </div>
+                      <div className="sm:col-span-3">
+                        <label className="text-xs font-medium text-gray-600 mb-1 block sm:hidden">Emails</label>
+                        <Input
+                          type="text"
+                          value={ent.emails}
+                          onChange={(e) => updateEmails(ent.id, e.target.value)}
+                          placeholder="email1@example.com, email2@example.com"
+                          className="border-gray-300 focus:border-[#1ca5b3] focus:ring-[#1ca5b3]"
+                        />
+                      </div>
+                      <div className="sm:col-span-1 flex justify-end">
+                        {!isEditing && (
+                          <Button
+                            type="button"
+                            className={`${
+                              entries.length === 1
+                                ? "cursor-not-allowed bg-gray-300 hover:bg-gray-300"
+                                : "text-white bg-red-500 hover:bg-red-600"
+                            } w-full sm:w-auto transition-all`}
+                            disabled={entries.length === 1}
+                            onClick={() => removeEntry(ent.id)}
+                          >
+                            <X size={18} />
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -281,40 +466,42 @@ const IPPortForm = ({ configId, entryId }) => {
                 <Button
                   type="button"
                   onClick={addEntry}
-                  className="bg-transparent text-black flex w-full hover:bg-gray-50 border-dashed border rounded-md"
+                  className="bg-gradient-to-r from-[#1ca5b3]/10 to-[#0e7c87]/10 text-[#1ca5b3] hover:from-[#1ca5b3]/20 hover:to-[#0e7c87]/20 flex w-full justify-center items-center border-2 border-dashed border-[#1ca5b3] rounded-lg py-3 font-medium transition-all"
                 >
-                  <Plus size={16} />
-                  <span className="ml-2">Add Entry</span>
+                  <Plus size={18} />
+                  <span className="ml-2">Add Another Entry</span>
                 </Button>
               )}
+            </div>
 
-              <div className="pt-4 border-t flex flex-col sm:flex-row items-center gap-3 justify-between">
+          </div>
+
+          {/* Fixed Action Buttons Footer */}
+          <div className="p-6 border-t-2 border-gray-200 bg-gray-50 rounded-b-2xl flex flex-col sm:flex-row items-center gap-3 justify-end flex-shrink-0">
+              <Button
+                onClick={handleClose}
+                className="w-full sm:w-auto bg-white border-2 border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 px-8 py-2.5 font-medium"
+                disabled={isLoading}
+              >
+                Cancel
+              </Button>
+              {!isEditing ? (
                 <Button
-                  onClick={handleClose}
-                  className="w-full bg-transparent text-black hover:bg-gray-100"
+                  onClick={handleSubmit}
+                  className="w-full sm:w-auto bg-gradient-to-r from-[#1ca5b3] to-[#0e7c87] hover:from-[#0e7c87] hover:to-[#1ca5b3] text-white px-8 py-2.5 font-medium shadow-lg shadow-[#1ca5b3]/30 transition-all"
                   disabled={isLoading}
                 >
-                  Cancel
+                  {isLoading ? "Saving..." : "Save Configuration"}
                 </Button>
-                {!isEditing ? (
-                  <Button
-                    onClick={handleSubmit}
-                    className="w-full"
-                    disabled={isLoading}
-                  >
-                    {isLoading ? "Saving..." : "Save Configuration"}
-                  </Button>
-                ) : (
-                  <Button
-                    onClick={handleUpdate}
-                    className="w-full"
-                    disabled={isLoading}
-                  >
-                    {isLoading ? "Saving..." : "Update Configuration"}
-                  </Button>
-                )}
-              </div>
-            </div>
+              ) : (
+                <Button
+                  onClick={handleUpdate}
+                  className="w-full sm:w-auto bg-gradient-to-r from-[#1ca5b3] to-[#0e7c87] hover:from-[#0e7c87] hover:to-[#1ca5b3] text-white px-8 py-2.5 font-medium shadow-lg shadow-[#1ca5b3]/30 transition-all"
+                  disabled={isLoading}
+                >
+                  {isLoading ? "Updating..." : "Update Configuration"}
+                </Button>
+              )}
           </div>
         </div>
       </div>
