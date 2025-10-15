@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { PlusCircle, LogOut } from "lucide-react";
+import { PlusCircle, LogOut, LoaderCircle } from "lucide-react";
 import IPPortForm from "./IPPortForm";
 import { Button } from "@/components/ui/button";
 import { Label } from "./ui/label";
@@ -45,8 +45,8 @@ export function Header() {
   return (
     <>
       {isLoading && (
-        <div className="fixed inset-0 flex justify-center items-center bg-black/20 backdrop-blur-sm z-50">
-          <Spin size="large" />
+         <div className="fixed inset-0 flex justify-center items-center bg-black/20 backdrop-blur-sm z-50">
+          <Spin size="large" indicator={<LoaderCircle className="animate-spin" color="#1ca5b3" />} />
         </div>
       )}
 

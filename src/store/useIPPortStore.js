@@ -33,7 +33,10 @@ const useIPPortStore = create((set, get) => ({
       }
     } catch (error) {
       console.error("Error fetching configurations:", error);
-      if (!silent) toast.error("Failed to fetch configurations");
+      if (!silent)
+        toast.error(
+          error?.response?.data?.message || "Failed to fetch configurations"
+        );
     } finally {
       if (!silent) set({ isLoading: false });
     }
@@ -54,7 +57,9 @@ const useIPPortStore = create((set, get) => ({
       }
     } catch (error) {
       console.error("Failed to save configuration:", error);
-      toast.error("An error occurred while saving");
+      toast.error(
+        error?.response?.data?.message || "An error occurred while saving"
+      );
       return { success: false };
     } finally {
       set({ isLoading: false });
@@ -101,7 +106,9 @@ const useIPPortStore = create((set, get) => ({
       }
     } catch (error) {
       console.error("Error deleting configuration:", error);
-      toast.error("An error occurred while deleting");
+      toast.error(
+        error?.response?.data?.message || "An error occurred while deleting"
+      );
     } finally {
       set({ isLoading: false });
     }
@@ -157,13 +164,13 @@ const useIPPortStore = create((set, get) => ({
             }),
           })),
         }));
-        toast.success("checked all status")
+        toast.success("checked all status");
       } else {
         throw new Error("Invalid response format");
       }
     } catch (error) {
       console.error("Error checking all status:", error);
-      toast.error("Failed to check status");
+      toast.error(error?.response?.data?.message || "Failed to check status");
       // Mark all as offline on error
       set((state) => ({
         entries: state.entries.map((config) => ({
@@ -194,7 +201,10 @@ const useIPPortStore = create((set, get) => ({
       }
     } catch (error) {
       console.error("Error sending Email:", error);
-      toast.error("An error occurred while sending Email");
+      toast.error(
+        error?.response?.data?.message ||
+          "An error occurred while sending Email"
+      );
     } finally {
       set({ isLoading: false });
     }
@@ -215,7 +225,10 @@ const useIPPortStore = create((set, get) => ({
       }
     } catch (error) {
       console.error("Error fetching config:", error);
-      toast.error("An error occurred while fetching config");
+      toast.error(
+        error?.response?.data?.message ||
+          "An error occurred while fetching config"
+      );
     } finally {
       set({ isLoading: false });
     }

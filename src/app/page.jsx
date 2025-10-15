@@ -11,6 +11,7 @@ import {
   WifiOff,
   Timer,
   Search,
+  LoaderCircle,
 } from "lucide-react";
 import { Popconfirm, Spin, Select, Input, Collapse } from "antd";
 import { QuestionCircleOutlined } from "@ant-design/icons";
@@ -221,8 +222,8 @@ const Home = () => {
   return (
     <div className="min-h-screen bg-white">
       {isLoading && (
-        <div className="fixed inset-0 flex justify-center items-center bg-black/30 backdrop-blur-sm z-50">
-          <Spin size="large" />
+        <div className="fixed inset-0 flex justify-center items-center bg-black/20 backdrop-blur-sm z-50">
+          <Spin size="large" indicator={<LoaderCircle className="animate-spin" color="#1ca5b3"/>} />
         </div>
       )}
 

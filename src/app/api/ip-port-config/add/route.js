@@ -61,10 +61,11 @@ export async function POST(req) {
       if (!ip || !port) {
         throw new Error(`Entry ${index + 1}: IP and Port are required`);
       }
-
       // Clean and validate emails
       const cleanedEmails = Array.isArray(emails)
-        ? emails.map((e) => e.trim()).filter((e) => e.length > 0 && isValidEmail(e))
+        ? emails
+            .map((e) => e.trim())
+            .filter((e) => e.length > 0 && isValidEmail(e))
         : typeof emails === "string"
         ? emails
             .split(/[,\n]/)
@@ -82,10 +83,22 @@ export async function POST(req) {
         port: port.trim(),
         referPortName: referPortName?.trim() || "custom",
         emails: cleanedEmails,
-        status: "offline", // ✅ default status matches new schema
+        status: "offline",
         checkedAt: new Date(),
       };
     });
+
+    const duplicate = await IPPortConfig.findOne({
+      ip: cleanedEntries.ip,
+      port: cleanedEntries.port,
+    });
+    
+    if (duplicate) {
+      return NextResponse.json(
+        { success: false, message: "Ip and Port pair is already exists." },
+        { status: 400 }
+      );
+    }
 
     // 7️⃣ Save to MongoDB
     const newConfig = new IPPortConfig({
