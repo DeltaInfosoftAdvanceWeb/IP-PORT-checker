@@ -35,7 +35,7 @@ const ipPortEntryLogSchema = new mongoose.Schema(
     ip: { type: String, required: true },
     port: { type: String, required: true },
     referPortName: { type: String, default: "custom" },
-    logs: { type: [ipPortSingleLogSchema], default: [] }, // ✅ Array of log history
+    logs: { type: [ipPortSingleLogSchema], default: [] },
   },
   { timestamps: true }
 );

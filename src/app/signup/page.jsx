@@ -51,20 +51,21 @@ export default function SignupPage() {
   async function onSubmit(values) {
     setIsLoading(true);
     try {
-      const response = await axios.post("/api/signup", {
+      const {data} = await axios.post("/api/signup", {
         email: values.email,
         username: values.username,
         password: values.password,
       });
-
-      if (response.status === 201) {
+      console.log(data);  
+      
+      if (data.success) {
         toast.success("Request created successfully!");
         router.push("/login");
       } else {
-        toast.error(response.data.message);
+        toast.error(data.message);
       }
     } catch (error) {
-      toast.error("An error occurred. Please try again.");
+      toast.error(error?.response?.data?.message || "An error occurred. Please try again.");
     } finally {
       setIsLoading(false);
     }
