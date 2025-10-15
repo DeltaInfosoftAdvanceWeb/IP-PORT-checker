@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { connectToDatabase } from "../../../../../dbConfig";
 import IPPortConfig from "../../../../modals/ipPortConfigSchema.js";
 import jwt from "jsonwebtoken";
+import IPPortCheckedLog from "@/modals/checkedLogSchema";
 
 export async function POST(req) {
   try {
@@ -12,7 +13,10 @@ export async function POST(req) {
     const token = req.cookies.get("authToken")?.value;
     if (!token) {
       return NextResponse.json(
-        { success: false, message: "Authentication required. Please login first." },
+        {
+          success: false,
+          message: "Authentication required. Please login first.",
+        },
         { status: 401 }
       );
     }
@@ -22,7 +26,10 @@ export async function POST(req) {
       decoded = jwt.verify(token, process.env.JWT_SECRET);
     } catch (err) {
       return NextResponse.json(
-        { success: false, message: "Invalid or expired token. Please login again." },
+        {
+          success: false,
+          message: "Invalid or expired token. Please login again.",
+        },
         { status: 401 }
       );
     }
@@ -57,7 +64,10 @@ export async function POST(req) {
       entry.referPortName.trim() === ""
     ) {
       return NextResponse.json(
-        { success: false, message: "IP, Port, and Refer Port Name are required." },
+        {
+          success: false,
+          message: "IP, Port, and Refer Port Name are required.",
+        },
         { status: 400 }
       );
     }
@@ -91,7 +101,7 @@ export async function POST(req) {
 
     // 7️⃣ Update document
     const updateConfig = await IPPortConfig.findOneAndUpdate(
-      { _id: configId, userId, "entries._id": entryId },
+      { _id: configId, "entries._id": entryId },
       {
         $set: {
           "entries.$.ip": entry.ip.trim(),
@@ -108,12 +118,20 @@ export async function POST(req) {
       return NextResponse.json(
         {
           success: false,
-          message: "Entry not found or update failed. Please verify configId and entryId.",
+          message:
+            "Entry not found or update failed. Please verify configId and entryId.",
         },
         { status: 404 }
       );
     }
-
+    // --- Update log document if it exists ---
+    const logDoc = await IPPortCheckedLog.findOne({ entryId });
+    if (logDoc) {
+      logDoc.ip = entry.ip.trim();
+      logDoc.port = entry.port.trim();
+      logDoc.referPortName = entry.referPortName.trim();
+      await logDoc.save();
+    }
     // 8️⃣ Return success response
     return NextResponse.json(
       {
@@ -129,7 +147,8 @@ export async function POST(req) {
       {
         success: false,
         message:
-          error.message || "An unexpected error occurred while updating configuration.",
+          error.message ||
+          "An unexpected error occurred while updating configuration.",
       },
       { status: 500 }
     );

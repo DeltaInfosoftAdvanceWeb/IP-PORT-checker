@@ -56,7 +56,7 @@ export async function POST(req) {
     const response = NextResponse.json(
       {
         message: "Login successful",
-        status: 200,
+        success:true,
         authToken: token,
         user: {
           id: existingUser._id,
@@ -80,7 +80,7 @@ export async function POST(req) {
     return NextResponse.json(
       {
         message: "An error occurred during login.",
-        status: 500,
+        success:false
       },
       { status: 500 }
     );

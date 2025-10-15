@@ -44,18 +44,18 @@ export default function LoginPage() {
     setIsLoading(true);
     try {
       setLoaderText("Logging in...");
-      const response = await axios.post("/api/login", values);
-      if (response.data.status === 200) {
+      const {data} = await axios.post("/api/login", values);
+      if (data.success) {
         toast.success("Login successful");
         router.push("/");
       } else {
-        if (response.data.message === "User not found") {
+        if (data.message === "User not found with provided email") {
           toast.error("User not found, please sign up first");
           router.push("/signup");
         } else toast.error("Invalid credentials");
       }
     } catch (error) {
-      toast.error("Login failed. Please try again.");
+      toast.error(error?.response?.data?.message||"Login failed. Please try again.");
     } finally {
       setIsLoading(false);
       setLoaderText("");
