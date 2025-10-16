@@ -211,26 +211,40 @@ const useIPPortStore = create((set, get) => ({
   },
 
   getById: async (configId, entryId) => {
-    set({ isLoading: true });
     try {
-      const response = await axios.post("/api/ip-port-config/getById", {
-        configId,
-        entryId,
-      });
-      if (response.data.success) {
-        return { success: true, IpConfigData: response.data.IpConfigData };
-      } else {
-        toast.error(response.data.message || "Failed to fetch config");
+      const { entries } = get();
+
+      // Find config by configId
+      const config = entries.find((cfg) => cfg._id === configId);
+
+      if (!config) {
+        toast.error("Configuration not found in store");
         return { success: false };
       }
+
+      // If entryId provided, find specific entry
+      if (entryId) {
+        const entry = config.entries.find(
+          (e) => e._id?.toString() === entryId?.toString()
+        );
+        if (!entry) {
+          toast.error("Entry not found in this configuration");
+          return { success: false };
+        }
+        console.log(entry);
+
+        return {
+          success: true,
+          entry,
+        };
+      }
+
+      // If no entryId, return full config
+      return { success: true, IpConfigData: config };
     } catch (error) {
-      console.error("Error fetching config:", error);
-      toast.error(
-        error?.response?.data?.message ||
-          "An error occurred while fetching config"
-      );
-    } finally {
-      set({ isLoading: false });
+      console.error("Error finding config locally:", error);
+      toast.error("Error reading local configuration");
+      return { success: false };
     }
   },
 
@@ -253,6 +267,25 @@ const useIPPortStore = create((set, get) => ({
     } catch (error) {
       console.error("Error updating config:", error);
       toast.error(error?.response?.data?.message);
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  generateReport: async (reportEntry, from, to) => {
+    set({ isLoading: true });
+    try {
+      const response = await fetch(
+        `/api/ip-port-config/ip-logs/export?entryId=${reportEntry._id}&from=${from}&to=${to}`
+      );
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.message || "Failed to generate report.");
+      }
+      return response;
+    } catch (error) {
+      console.error("Error generating report:", error);
+      toast.error(`Error: ${error.message}`);
     } finally {
       set({ isLoading: false });
     }

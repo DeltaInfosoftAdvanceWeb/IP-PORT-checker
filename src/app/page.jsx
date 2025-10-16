@@ -14,10 +14,11 @@ import {
   LoaderCircle,
 } from "lucide-react";
 import { Popconfirm, Spin, Select, Input, Collapse } from "antd";
-import { QuestionCircleOutlined } from "@ant-design/icons";
+import { ExceptionOutlined, QuestionCircleOutlined } from "@ant-design/icons";
 import useIPPortStore from "@/store/useIPPortStore";
 import IPPortForm from "@/components/IPPortForm";
-
+import toast from "react-hot-toast";
+import ReportModal from "@/components/ReportModal";
 const { Option } = Select;
 
 const Home = () => {
@@ -33,11 +34,15 @@ const Home = () => {
     isModalOpen,
     openModal,
     openEdit,
+    generateReport,
   } = useIPPortStore();
 
   const [editingEntry, setEditingEntry] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+
+  const [reportModalVisible, setReportModalVisible] = useState(false);
+  const [reportEntry, setReportEntry] = useState(null);
 
   const formatDateTime = (date) =>
     date
@@ -69,14 +74,10 @@ const Home = () => {
 
   const getStatusBgGradient = (status) =>
     ({
-      online:
-        "bg-gradient-to-br from-green-50 to-emerald-50 border-green-300",
-      offline:
-        "bg-gradient-to-br from-red-50 to-rose-50 border-red-300",
-      timeout:
-        "bg-gradient-to-br from-amber-50 to-yellow-50 border-amber-300",
-      checking:
-        "bg-gradient-to-br from-blue-50 to-sky-50 border-blue-300",
+      online: "bg-gradient-to-br from-green-50 to-emerald-50 border-green-300",
+      offline: "bg-gradient-to-br from-red-50 to-rose-50 border-red-300",
+      timeout: "bg-gradient-to-br from-amber-50 to-yellow-50 border-amber-300",
+      checking: "bg-gradient-to-br from-blue-50 to-sky-50 border-blue-300",
     }[status] || "bg-gradient-to-br from-gray-50 to-slate-50 border-gray-300");
 
   const getStatusIcon = (status) =>
@@ -106,6 +107,27 @@ const Home = () => {
   }, []);
 
   const stats = getTotalStats();
+
+  const handleReportClick = (entry) => {
+    setReportEntry(entry);
+    setReportModalVisible(true);
+  };
+
+  const handleGenerateReport = async (from, to) => {
+    try {
+      const response = await generateReport(reportEntry, from, to);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `ip_port_logs_${reportEntry._id}.xlsx`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error(err);
+      toast.error(err.message);
+    }
+  };
 
   const filteredEntries = entries
     .flatMap((config) =>
@@ -146,57 +168,43 @@ const Home = () => {
           <p className="font-mono text-gray-900 font-semibold text-sm">
             {entry.ip}:{entry.port}
           </p>
-          <p className="text-xs text-gray-500">
-            {entry.referPortName || "-"}
-          </p>
+          <p className="text-xs text-gray-500">{entry.referPortName || "-"}</p>
         </div>
       </div>
     ),
     children: (
       <div className="space-y-3 pt-2">
         {entry.responseTime && (
-          <Info
-            label="Response Time"
-            value={`${entry.responseTime}ms`}
-          />
+          <Info label="Response Time" value={`${entry.responseTime}ms`} />
         )}
-        <Info
-          label="Last Checked"
-          value={formatDateTime(entry.checkedAt)}
-        />
+        <Info label="Last Checked" value={formatDateTime(entry.checkedAt)} />
 
         {entry?.emails?.length > 0 && (
           <Info label="Emails" value={entry.emails.join(", ")} />
         )}
 
         {/* Actions */}
-        <div className="grid grid-cols-3 gap-2 mt-4">
+        <div className="grid grid-cols-4 gap-2 mt-4">
           <button
-            onClick={() =>
-              handleEditClick(entry.configId, entry._id)
-            }
+            onClick={() => handleEditClick(entry.configId, entry._id)}
             className="flex items-center gap-1 px-2 justify-center py-2 rounded-xl border text-amber-600 border-amber-300 bg-amber-50 hover:bg-amber-100 hover:shadow-md transition-all"
           >
             <Edit className="w-4 h-4" />
-            <span className="text-sm">Edit</span>
+            <span className="text-sm hidden lg:block">Edit</span>
           </button>
 
           <Popconfirm
             title="Delete Configuration"
             description="Are you sure you want to delete this endpoint?"
-            onConfirm={() =>
-              deleteConfiguration(entry.configId, entry._id)
-            }
+            onConfirm={() => deleteConfiguration(entry.configId, entry._id)}
             okText="Delete"
             okType="danger"
             cancelText="Cancel"
-            icon={
-              <QuestionCircleOutlined style={{ color: "red" }} />
-            }
+            icon={<QuestionCircleOutlined style={{ color: "red" }} />}
           >
             <button className="flex items-center gap-1 px-2 justify-center py-2 rounded-xl border text-red-600 border-red-300 bg-red-50 hover:bg-red-100 hover:shadow-md transition-all">
               <Trash2 className="w-4 h-4" />
-              <span className="text-sm">Delete</span>
+              <span className="text-sm hidden lg:block">Delete</span>
             </button>
           </Popconfirm>
 
@@ -206,16 +214,35 @@ const Home = () => {
             className="flex items-center gap-1 px-2  justify-center py-2 rounded-xl border text-[#1ca5b3] border-[#1ca5b3]/40 bg-[#e6f7f8] hover:bg-[#d0f1f3] hover:shadow-md transition-all disabled:opacity-60 disabled:cursor-not-allowed"
           >
             <Mail className="w-4 h-4" />
-            <span className="text-sm">Email</span>
+            <span className="text-sm hidden lg:block">Email</span>
           </button>
+          <button
+            onClick={() => handleReportClick(entry)}
+            disabled={isLoading}
+            className="flex items-center gap-1 px-2 justify-center py-2 rounded-xl border text-green-400 border-green-400 bg-green-50 hover:bg-green-100 hover:shadow-md transition-all"
+          >
+            <ExceptionOutlined className="w-4 h-4" />
+            <span className="text-sm hidden lg:block">Report</span>
+          </button>
+
+          {reportModalVisible && reportEntry && (
+            <ReportModal
+              visible={reportModalVisible}
+              entry={reportEntry}
+              onClose={() => setReportModalVisible(false)}
+              onGenerate={handleGenerateReport}
+            />
+          )}
         </div>
       </div>
     ),
-    className: `border-2 border-b rounded-xl ${getStatusBgGradient(entry.status)} mb-3`,
+    className: `border-2 border-b rounded-xl ${getStatusBgGradient(
+      entry.status
+    )} mb-3`,
     style: {
       borderRadius: "12px",
       overflow: "hidden",
-      border:`2px solid ${getBorderColor(entry.status)}`
+      border: `2px solid ${getBorderColor(entry.status)}`,
     },
   }));
 
@@ -223,7 +250,12 @@ const Home = () => {
     <div className="min-h-screen bg-white">
       {isLoading && (
         <div className="fixed inset-0 flex justify-center items-center bg-black/20 backdrop-blur-sm z-50">
-          <Spin size="large" indicator={<LoaderCircle className="animate-spin" color="#1ca5b3"/>} />
+          <Spin
+            size="large"
+            indicator={
+              <LoaderCircle className="animate-spin" color="#1ca5b3" />
+            }
+          />
         </div>
       )}
 
