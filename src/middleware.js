@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
 
-const PUBLIC_ROUTES = ['/login', '/api/login',"/signup"];
+const PUBLIC_ROUTES = ['/login', '/api/login',"/signup","/api/backup-schedule/add"];
 
 async function verifyToken(token) {
   try {
