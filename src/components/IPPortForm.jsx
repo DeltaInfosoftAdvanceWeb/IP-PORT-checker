@@ -1,11 +1,16 @@
 "use client";
 
-import { Plus, X, Server, Upload, FileSpreadsheet, Info } from "lucide-react";
-import React, { useEffect, useState } from "react";
+import { Plus, X, Server, Upload, FileSpreadsheet, Info, UserPlus, FileDown } from "lucide-react";
+import React, { useEffect, useState, useRef } from "react";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 import useIPPortStore from "@/store/useIPPortStore";
 import { toast } from "react-hot-toast";
+import axios from "axios";
+import { Select, Modal } from "antd";
+import * as XLSX from "xlsx";
+
+const { Option } = Select;
 
 const IPPortForm = ({ configId, entryId }) => {
   const {
@@ -22,17 +27,213 @@ const IPPortForm = ({ configId, entryId }) => {
 
   // 🧩 Default entry now keeps emails as string, not array
   const [entries, setEntries] = useState([
-    { id: "1", ip: "", port: "", referPortName: "", emails: "" },
+    { id: "1", ip: "", port: "", referPortName: "", clientName: "", emails: "" },
   ]);
   const [nextId, setNextId] = useState(2);
   const [bulkInput, setBulkInput] = useState("");
   const [showBulkInput, setShowBulkInput] = useState(false);
+  const [clients, setClients] = useState([]);
+  const [isAddClientModalOpen, setIsAddClientModalOpen] = useState(false);
+  const [newClientName, setNewClientName] = useState("");
+  const fileInputRef = useRef(null);
+
+  // 🏢 Fetch clients on mount
+  useEffect(() => {
+    fetchClients();
+  }, []);
+
+  const fetchClients = async () => {
+    try {
+      const response = await axios.post("/api/clients/get", {});
+      if (response.data.success) {
+        setClients(response.data.data);
+      }
+    } catch (error) {
+      console.error("Error fetching clients:", error);
+    }
+  };
+
+  const handleAddNewClient = async () => {
+    if (!newClientName.trim()) {
+      toast.error("Client name cannot be empty");
+      return;
+    }
+
+    try {
+      const response = await axios.post("/api/clients/add", {
+        name: newClientName.trim(),
+      });
+
+      if (response.data.success) {
+        toast.success("Client added successfully!");
+        setClients([...clients, response.data.data]);
+        setNewClientName("");
+        setIsAddClientModalOpen(false);
+      }
+    } catch (error) {
+      console.error("Error adding client:", error);
+      if (error.response?.status === 409) {
+        toast.error("Client already exists");
+      } else {
+        toast.error(error.response?.data?.message || "Failed to add client");
+      }
+    }
+  };
+
+  // Auto-create client if doesn't exist
+  const ensureClientExists = async (clientName) => {
+    if (!clientName || !clientName.trim()) return;
+
+    const existingClient = clients.find(c => c.name === clientName.trim());
+    if (existingClient) return;
+
+    try {
+      const response = await axios.post("/api/clients/add", {
+        name: clientName.trim(),
+      });
+
+      if (response.data.success) {
+        setClients([...clients, response.data.data]);
+      }
+    } catch (error) {
+      // Ignore 409 (already exists) error
+      if (error.response?.status !== 409) {
+        console.error("Error creating client:", error);
+      }
+    }
+  };
+
+  // Handle Excel Import
+  const handleExcelImport = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const data = new Uint8Array(event.target.result);
+        const workbook = XLSX.read(data, { type: "array" });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+        if (jsonData.length === 0) {
+          toast.error("Excel file is empty");
+          return;
+        }
+
+        toast.loading("Processing Excel data...");
+
+        const newEntries = [];
+        let currentId = nextId;
+        const uniqueClients = new Set();
+
+        // Process each row
+        for (const row of jsonData) {
+          const ip = row.IP || row.ip || "";
+          const port = row.Port || row.PORT || row.port || "";
+          const referPortName = row["Reference Name"] || row["Refer Port Name"] || row.referPortName || row.reference_name || "";
+          const clientName = row["Client Name"] || row.clientName || row.client_name || "";
+          const emailsStr = row.Emails || row.emails || row.EMAIL || "";
+
+          // Parse emails
+          let emails = "";
+          if (emailsStr) {
+            if (typeof emailsStr === "string") {
+              emails = emailsStr;
+            } else {
+              emails = String(emailsStr);
+            }
+          }
+
+          if (ip && port) {
+            newEntries.push({
+              id: currentId++,
+              ip: String(ip).trim(),
+              port: String(port).trim(),
+              referPortName: String(referPortName).trim(),
+              clientName: String(clientName).trim(),
+              emails: emails,
+            });
+
+            // Track unique clients
+            if (clientName && clientName.trim()) {
+              uniqueClients.add(clientName.trim());
+            }
+          }
+        }
+
+        // Auto-create clients that don't exist
+        for (const clientName of uniqueClients) {
+          await ensureClientExists(clientName);
+        }
+
+        if (newEntries.length > 0) {
+          setEntries(newEntries);
+          setNextId(currentId);
+          toast.dismiss();
+          toast.success(`Successfully imported ${newEntries.length} configurations!`);
+        } else {
+          toast.dismiss();
+          toast.error("No valid entries found in Excel file");
+        }
+
+        // Reset file input
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+      } catch (error) {
+        console.error("Error parsing Excel:", error);
+        toast.dismiss();
+        toast.error("Failed to parse Excel file. Please check the format.");
+      }
+    };
+
+    reader.readAsArrayBuffer(file);
+  };
+
+  // Download Excel Template
+  const downloadExcelTemplate = () => {
+    const template = [
+      {
+        IP: "192.168.1.1",
+        Port: "3000",
+        "Reference Name": "postgres",
+        "Client Name": "Waterman",
+        Emails: "admin@example.com, user@example.com",
+      },
+      {
+        IP: "192.168.1.2",
+        Port: "8080",
+        "Reference Name": "api-server",
+        "Client Name": "Desire",
+        Emails: "dev@example.com",
+      },
+    ];
+
+    const ws = XLSX.utils.json_to_sheet(template);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "IP-Port Configs");
+
+    // Auto-width columns
+    const colWidths = [
+      { wch: 15 }, // IP
+      { wch: 8 },  // Port
+      { wch: 20 }, // Reference Name
+      { wch: 20 }, // Client Name
+      { wch: 40 }, // Emails
+    ];
+    ws["!cols"] = colWidths;
+
+    XLSX.writeFile(wb, "IP-Port-Config-Template.xlsx");
+    toast.success("Template downloaded!");
+  };
 
   // ➕ Add new entry
   const addEntry = () => {
     setEntries([
       ...entries,
-      { id: nextId, ip: "", port: "", referPortName: "", emails: "" },
+      { id: nextId, ip: "", port: "", referPortName: "", clientName: "", emails: "" },
     ]);
     setNextId(nextId + 1);
   };
@@ -76,15 +277,17 @@ const IPPortForm = ({ configId, entryId }) => {
       let ip = "";
       let port = "";
       let referPortName = "";
+      let clientName = "";
       let emails = "";
 
       if (trimmedLine.includes(",")) {
-        // CSV format: IP, PORT, NAME, EMAILS
+        // CSV format: IP, PORT, NAME, CLIENT, EMAILS
         const parts = trimmedLine.split(",").map((s) => s.trim());
         ip = parts[0] || "";
         port = parts[1] || "";
         referPortName = parts[2] || "";
-        emails = parts[3] || "";
+        clientName = parts[3] || "";
+        emails = parts[4] || "";
       } else if (trimmedLine.includes(":")) {
         // IP:PORT format
         const [ipPart, portPart] = trimmedLine.split(":").map((s) => s.trim());
@@ -106,6 +309,7 @@ const IPPortForm = ({ configId, entryId }) => {
           ip,
           port,
           referPortName,
+          clientName,
           emails,
         });
       }
@@ -158,6 +362,7 @@ const IPPortForm = ({ configId, entryId }) => {
               ip,
               port,
               referPortName: "",
+              clientName: "",
               emails: "",
             });
           } else {
@@ -166,6 +371,7 @@ const IPPortForm = ({ configId, entryId }) => {
               ip: "",
               port: trimmedLine,
               referPortName: "",
+              clientName: "",
               emails: "",
             });
           }
@@ -186,10 +392,11 @@ const IPPortForm = ({ configId, entryId }) => {
   // 💾 Submit new configuration
   const handleSubmit = async () => {
     const formattedEntries = entries.map(
-      ({ ip, port, referPortName, emails }) => ({
+      ({ ip, port, referPortName, clientName, emails }) => ({
         ip,
         port,
         referPortName,
+        clientName,
         emails:
           typeof emails === "string"
             ? emails
@@ -205,7 +412,7 @@ const IPPortForm = ({ configId, entryId }) => {
     if (result.success) {
       toast.success("Configuration saved successfully!");
       setEntries([
-        { id: "1", ip: "", port: "", referPortName: "", emails: "" },
+        { id: "1", ip: "", port: "", referPortName: "", clientName: "", emails: "" },
       ]);
       setNextId(2);
       checkAllStatus();
@@ -215,10 +422,11 @@ const IPPortForm = ({ configId, entryId }) => {
   // ✏️ Update existing configuration
   const handleUpdate = async () => {
     const formattedEntries = entries.map(
-      ({ ip, port, referPortName, emails }) => ({
+      ({ ip, port, referPortName, clientName, emails }) => ({
         ip,
         port,
         referPortName,
+        clientName,
         emails:
           typeof emails === "string"
             ? emails
@@ -249,7 +457,7 @@ const IPPortForm = ({ configId, entryId }) => {
 
   // 🧹 Close modal
   const handleClose = () => {
-    setEntries([{ id: "1", ip: "", port: "", referPortName: "", emails: "" }]);
+    setEntries([{ id: "1", ip: "", port: "", referPortName: "", clientName: "", emails: "" }]);
     setNextId(2);
     closeEdit();
     closeModal();
@@ -266,6 +474,7 @@ const IPPortForm = ({ configId, entryId }) => {
             {
               ...response.entry,
               id: response.entry._id?.toString() || "1",
+              clientName: response.entry.clientName || "",
               emails: Array.isArray(response.entry.emails)
                 ? response.entry.emails.join(", ")
                 : response.entry.emails || "",
@@ -421,9 +630,10 @@ const IPPortForm = ({ configId, entryId }) => {
 
               <div className="border rounded-xl border-gray-200 py-6 px-3 space-y-3 bg-gray-50 max-h-[400px] overflow-y-auto">
                 <div className="hidden sm:grid grid-cols-12 gap-3 text-xs font-medium text-gray-500 uppercase tracking-wide pb-2">
-                  <div className="col-span-3">IP Address</div>
+                  <div className="col-span-2">IP Address</div>
                   <div className="col-span-2">Port</div>
-                  <div className="col-span-3">Refer Port Name</div>
+                  <div className="col-span-2">Refer Port Name</div>
+                  <div className="col-span-2">Client Name</div>
                   <div className="col-span-3">Emails</div>
                   <div className="col-span-1"></div>
                 </div>
@@ -443,7 +653,7 @@ const IPPortForm = ({ configId, entryId }) => {
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
-                      <div className="sm:col-span-3">
+                      <div className="sm:col-span-2">
                         <label className="text-xs font-medium text-gray-600 mb-1 block sm:hidden">
                           IP Address
                         </label>
@@ -472,7 +682,7 @@ const IPPortForm = ({ configId, entryId }) => {
                           className="border-gray-300 focus:border-[#1ca5b3] focus:ring-[#1ca5b3]"
                         />
                       </div>
-                      <div className="sm:col-span-3">
+                      <div className="sm:col-span-2">
                         <label className="text-xs font-medium text-gray-600 mb-1 block sm:hidden">
                           Refer Port Name
                         </label>
@@ -485,6 +695,43 @@ const IPPortForm = ({ configId, entryId }) => {
                           placeholder="postgres"
                           className="border-gray-300 focus:border-[#1ca5b3] focus:ring-[#1ca5b3]"
                         />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className="text-xs font-medium text-gray-600 mb-1 block sm:hidden">
+                          Client Name
+                        </label>
+                        <Select
+                          showSearch
+                          value={ent.clientName || undefined}
+                          placeholder="Select or search client"
+                          onChange={(value) => updateEntry(ent.id, "clientName", value)}
+                          className="w-full"
+                          style={{ height: '40px' }}
+                          filterOption={(input, option) =>
+                            (option?.children ?? '').toLowerCase().includes(input.toLowerCase())
+                          }
+                          dropdownRender={(menu) => (
+                            <>
+                              {menu}
+                              <div className="border-t border-gray-200 p-2">
+                                <Button
+                                  type="button"
+                                  onClick={() => setIsAddClientModalOpen(true)}
+                                  className="w-full flex items-center justify-center gap-2 bg-[#1ca5b3] hover:bg-[#0e7c87] text-white"
+                                >
+                                  <UserPlus size={16} />
+                                  Add New Client
+                                </Button>
+                              </div>
+                            </>
+                          )}
+                        >
+                          {clients.map((client) => (
+                            <Option key={client._id} value={client.name}>
+                              {client.name}
+                            </Option>
+                          ))}
+                        </Select>
                       </div>
                       <div className="sm:col-span-3">
                         <label className="text-xs font-medium text-gray-600 mb-1 block sm:hidden">
@@ -561,6 +808,45 @@ const IPPortForm = ({ configId, entryId }) => {
           </div>
         </div>
       </div>
+
+      {/* Add Client Modal */}
+      <Modal
+        title={
+          <div className="flex items-center gap-2">
+            <UserPlus className="h-5 w-5 text-[#1ca5b3]" />
+            <span>Add New Client</span>
+          </div>
+        }
+        open={isAddClientModalOpen}
+        onOk={handleAddNewClient}
+        onCancel={() => {
+          setIsAddClientModalOpen(false);
+          setNewClientName("");
+        }}
+        okText="Add Client"
+        cancelText="Cancel"
+        okButtonProps={{
+          className: "bg-[#1ca5b3] hover:bg-[#0e7c87]",
+        }}
+      >
+        <div className="py-4">
+          <label className="text-sm font-medium text-gray-700 mb-2 block">
+            Client Name
+          </label>
+          <Input
+            type="text"
+            value={newClientName}
+            onChange={(e) => setNewClientName(e.target.value)}
+            placeholder="Enter client name (e.g., Waterman, Desire)"
+            className="border-gray-300 focus:border-[#1ca5b3] focus:ring-[#1ca5b3]"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                handleAddNewClient();
+              }
+            }}
+          />
+        </div>
+      </Modal>
     </>
   );
 };

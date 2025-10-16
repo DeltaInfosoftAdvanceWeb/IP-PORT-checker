@@ -28,6 +28,12 @@ const ipPortEntrySchema = new mongoose.Schema({
     type: String,
     default: "custom",
   },
+  clientName: {
+    type: String,
+    required: false,
+    trim: true,
+    default: "",
+  },
   emails: {
     type: [String],
     validate: {

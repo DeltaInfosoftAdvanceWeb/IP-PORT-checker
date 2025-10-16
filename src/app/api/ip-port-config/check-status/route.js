@@ -4,8 +4,7 @@ import IPPortConfig from "@/modals/ipPortConfigSchema";
 import { connectToDatabase } from "../../../../../dbConfig";
 import IPPortCheckedLog from "@/modals/checkedLogSchema";
 
-//  Check a single port 
-//  Check a single port 
+
 function checkPort(ip, port, timeout = 3000) {
   return new Promise((resolve) => {
     const socket = new net.Socket();

@@ -123,6 +123,7 @@ export async function POST(req) {
           "entries.$.ip": entry.ip.trim(),
           "entries.$.port": entry.port.trim(),
           "entries.$.referPortName": entry.referPortName.trim(),
+          "entries.$.clientName": entry.clientName || "",
           "entries.$.emails": cleanedEmails,
           "entries.$.checkedAt": new Date(),
         },

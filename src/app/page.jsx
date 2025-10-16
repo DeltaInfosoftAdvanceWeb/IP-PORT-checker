@@ -46,6 +46,7 @@ const Home = () => {
   const [editingEntry, setEditingEntry] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [clientFilter, setClientFilter] = useState("all");
 
   const [reportModalVisible, setReportModalVisible] = useState(false);
   const [reportEntry, setReportEntry] = useState(null);
@@ -163,6 +164,17 @@ const formatDateTime = (date, withTime = true) => {
     setExpandedKeys([]);
   };
 
+  // Get unique client names from entries (filter out empty ones)
+  const uniqueClients = [
+    ...new Set(
+      entries.flatMap((config) =>
+        config.entries
+          .map((entry) => entry.clientName)
+          .filter((name) => name && name.trim() !== "")
+      )
+    ),
+  ].sort();
+
   const filteredEntries = entries
     .flatMap((config) =>
       config.entries.map((entry) => ({
@@ -179,8 +191,21 @@ const formatDateTime = (date, withTime = true) => {
       const matchesStatus =
         statusFilter === "all" || entry.status === statusFilter;
 
-      return matchesSearch && matchesStatus;
+      const matchesClient =
+        clientFilter === "all" || entry.clientName === clientFilter;
+
+      return matchesSearch && matchesStatus && matchesClient;
     });
+
+  // Group entries by client name
+  const groupedByClient = filteredEntries.reduce((groups, entry) => {
+    const clientName = entry.clientName && entry.clientName.trim() !== "" ? entry.clientName : "Uncategorized";
+    if (!groups[clientName]) {
+      groups[clientName] = [];
+    }
+    groups[clientName].push(entry);
+    return groups;
+  }, {});
 
   // Prepare collapse items
   const collapseItems = filteredEntries.map((entry) => ({
@@ -208,6 +233,9 @@ const formatDateTime = (date, withTime = true) => {
     ),
     children: (
       <div className="space-y-3 pt-2">
+        {entry.clientName && (
+          <Info label="Client Name" value={entry.clientName} />
+        )}
         {entry.responseTime && (
           <Info label="Response Time" value={`${entry.responseTime}ms`} />
         )}
@@ -378,7 +406,7 @@ const formatDateTime = (date, withTime = true) => {
             prefix={<Search className="w-4 h-4 text-gray-400" />}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full sm:w-1/2 rounded-xl"
+            className="w-full sm:w-1/3 rounded-xl"
           />
           <Select
             value={statusFilter}
@@ -388,6 +416,18 @@ const formatDateTime = (date, withTime = true) => {
             <Option value="all">All Statuses</Option>
             <Option value="online">Online</Option>
             <Option value="offline">Offline</Option>
+          </Select>
+          <Select
+            value={clientFilter}
+            onChange={setClientFilter}
+            className="w-full sm:w-1/3 rounded-xl"
+          >
+            <Option value="all">All Clients</Option>
+            {uniqueClients.map((client) => (
+              <Option key={client} value={client}>
+                {client}
+              </Option>
+            ))}
           </Select>
         </div>
 
@@ -477,6 +517,9 @@ const formatDateTime = (date, withTime = true) => {
                       Refer Port Name
                     </th>
                     <th className="px-4 py-3 text-left text-sm font-semibold">
+                      Client Name
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold">
                       Response Time
                     </th>
                     <th className="px-4 py-3 text-left text-sm font-semibold">
@@ -518,6 +561,9 @@ const formatDateTime = (date, withTime = true) => {
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">
                         {entry.referPortName || "-"}
+                      </td>
+                      <td className="px-4 py-3 text-sm font-semibold text-[#1ca5b3]">
+                        {entry.clientName || "-"}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">
                         {entry.responseTime ? `${entry.responseTime}ms` : "-"}
@@ -581,24 +627,48 @@ const formatDateTime = (date, withTime = true) => {
               </table>
             </div>
           ) : (
-            /* Grid View */
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {collapseItems.map((item) => (
-                <Collapse
-                  key={item.key}
-                  items={[item]}
-                  bordered={false}
-                  className="bg-transparent"
-                  expandIconPosition="end"
-                  activeKey={expandedKeys.includes(item.key) ? [item.key] : []}
-                  onChange={(keys) => {
-                    if (keys.length > 0) {
-                      setExpandedKeys([...expandedKeys, item.key]);
-                    } else {
-                      setExpandedKeys(expandedKeys.filter((k) => k !== item.key));
-                    }
-                  }}
-                />
+            /* Grid View - Grouped by Client */
+            <div className="space-y-6">
+              {Object.entries(groupedByClient).map(([clientName, clientEntries]) => (
+                <div key={clientName} className="border-2 border-gray-200 rounded-2xl p-5 bg-gradient-to-br from-gray-50 to-white">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="bg-gradient-to-r from-[#1ca5b3] to-[#0e7c87] p-2 rounded-lg">
+                      <Server className="w-5 h-5 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-xl font-bold text-gray-900">{clientName}</h3>
+                      <p className="text-sm text-gray-500">{clientEntries.length} endpoints</p>
+                    </div>
+                    <div className="bg-[#1ca5b3]/10 px-4 py-2 rounded-lg">
+                      <span className="text-sm font-semibold text-[#1ca5b3]">
+                        {clientEntries.filter(e => e.status === "online").length} / {clientEntries.length} Online
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {clientEntries.map((entry) => {
+                      const item = collapseItems.find(i => i.key === entry._id);
+                      return item ? (
+                        <Collapse
+                          key={item.key}
+                          items={[item]}
+                          bordered={false}
+                          className="bg-transparent"
+                          expandIconPosition="end"
+                          activeKey={expandedKeys.includes(item.key) ? [item.key] : []}
+                          onChange={(keys) => {
+                            if (keys.length > 0) {
+                              setExpandedKeys([...expandedKeys, item.key]);
+                            } else {
+                              setExpandedKeys(expandedKeys.filter((k) => k !== item.key));
+                            }
+                          }}
+                        />
+                      ) : null;
+                    })}
+                  </div>
+                </div>
               ))}
             </div>
           )}

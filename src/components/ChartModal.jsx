@@ -14,7 +14,7 @@ import {
   Legend,
   Filler,
 } from "chart.js";
-import { LoaderCircle, Calendar, TrendingUp } from "lucide-react";
+import { LoaderCircle, Calendar, TrendingUp, RefreshCw } from "lucide-react";
 import toast from "react-hot-toast";
 import dayjs from "dayjs";
 
@@ -93,6 +93,28 @@ const ChartModal = ({ visible, onClose }) => {
     }
   };
 
+  const checkStatus = async () => {
+    try {
+      const response = await fetch("/api/ip-port-config/check-status", {
+        method: "POST",
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success("Status check completed!");
+        return true;
+      } else {
+        toast.error(result.message || "Failed to check status");
+        return false;
+      }
+    } catch (error) {
+      console.error("Error checking status:", error);
+      toast.error("Failed to check status");
+      return false;
+    }
+  };
+
   const fetchLogs = async (startDate = null, endDate = null, entryIds = null) => {
     setLoading(true);
     try {
@@ -123,6 +145,27 @@ const ChartModal = ({ visible, onClose }) => {
       console.error("Error fetching logs:", error);
       toast.error("Failed to fetch logs");
     } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRefreshData = async () => {
+    setLoading(true);
+    toast.loading("Checking status...", { id: "refresh" });
+
+    // First check status
+    const statusChecked = await checkStatus();
+
+    if (statusChecked) {
+      // Wait a moment for the status to be saved
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Then fetch logs
+      toast.loading("Fetching latest logs...", { id: "refresh" });
+      await fetchLogs(dateRange[0], dateRange[1]);
+      toast.success("Data refreshed!", { id: "refresh" });
+    } else {
+      toast.error("Failed to refresh data", { id: "refresh" });
       setLoading(false);
     }
   };
@@ -688,12 +731,13 @@ const ChartModal = ({ visible, onClose }) => {
               Total Logs: <span className="font-bold">{chartData.length}</span>
             </div>
             <Button
-              onClick={() => fetchLogs(dateRange[0], dateRange[1])}
+              onClick={handleRefreshData}
               loading={loading}
               type="primary"
               className="bg-[#1ca5b3]"
+              icon={<RefreshCw className="w-4 h-4" />}
             >
-              Refresh Data
+              Check Status & Refresh
             </Button>
           </div>
         </div>
