@@ -55,7 +55,7 @@ export async function POST(req) {
 
     // 6️⃣ Clean + validate each entry
     const cleanedEntries = entries.map((entry, index) => {
-      const { ip, port, referPortName, emails } = entry;
+      const { ip, port, referPortName, emails ,clientName} = entry;
 
       // Required fields check
       if (!ip || !port) {
@@ -82,6 +82,7 @@ export async function POST(req) {
         ip: ip.trim(),
         port: port.trim(),
         referPortName: referPortName?.trim() || "custom",
+        clientName:clientName,
         emails: cleanedEmails,
         status: "offline",
         checkedAt: new Date(),
