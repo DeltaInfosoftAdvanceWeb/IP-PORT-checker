@@ -12,6 +12,9 @@ import {
   Timer,
   Search,
   LoaderCircle,
+  LayoutGrid,
+  Table,
+  BarChart3,
 } from "lucide-react";
 import { Popconfirm, Spin, Select, Input, Collapse } from "antd";
 import { ExceptionOutlined, QuestionCircleOutlined } from "@ant-design/icons";
@@ -19,6 +22,7 @@ import useIPPortStore from "@/store/useIPPortStore";
 import IPPortForm from "@/components/IPPortForm";
 import toast from "react-hot-toast";
 import ReportModal from "@/components/ReportModal";
+import ChartModal from "@/components/ChartModal";
 const { Option } = Select;
 
 const Home = () => {
@@ -43,18 +47,36 @@ const Home = () => {
 
   const [reportModalVisible, setReportModalVisible] = useState(false);
   const [reportEntry, setReportEntry] = useState(null);
+  const [expandedKeys, setExpandedKeys] = useState([]);
+  const [viewMode, setViewMode] = useState("grid"); // "grid" or "table"
+  const [chartModalVisible, setChartModalVisible] = useState(false);
 
-  const formatDateTime = (date) =>
-    date
-      ? new Date(date).toLocaleString("en-US", {
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-        })
-      : "-";
+const formatDateTime = (date, withTime = true) => {
+    if (!date) return "-";
+
+    try {
+      const d = new Date(date);
+
+      const options = {
+        timeZone: "Asia/Kolkata",
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      };
+
+      if (withTime) {
+        options.hour = "2-digit";
+        options.minute = "2-digit";
+        options.hour12 = false;
+      }
+
+      const formatted = d.toLocaleString("en-GB", options);
+      return formatted.replace(",", "").replace(/\s/g, " ");
+    } catch (error) {
+      console.error("Error formatting date:", error);
+      return "Date error";
+    }
+  };
 
   const getStatusColor = (status) =>
     ({
@@ -127,6 +149,15 @@ const Home = () => {
       console.error(err);
       toast.error(err.message);
     }
+  };
+
+  const handleExpandAll = () => {
+    const allKeys = filteredEntries.map((entry) => entry._id);
+    setExpandedKeys(allKeys);
+  };
+
+  const handleCollapseAll = () => {
+    setExpandedKeys([]);
   };
 
   const filteredEntries = entries
@@ -274,21 +305,28 @@ const Home = () => {
                   IP & Port Monitor
                 </h1>
               </div>
-              <p className="text-blue-100 text-sm ml-14">
-                Real-time IP & Port Monitoring with manual checks
-              </p>
+             
             </div>
 
-            <button
-              onClick={checkAllStatus}
-              disabled={isChecking || entries.length === 0}
-              className="flex items-center gap-2 px-6 py-3 bg-white/20 hover:bg-white/30 text-white rounded-xl border border-white/30 font-medium"
-            >
-              <RefreshCw
-                className={`w-5 h-5 ${isChecking ? "animate-spin" : ""}`}
-              />
-              <span>Check Now</span>
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setChartModalVisible(true)}
+                className="flex items-center gap-2 px-6 py-3 bg-white/20 hover:bg-white/30 text-white rounded-xl border border-white/30 font-medium"
+              >
+                <BarChart3 className="w-5 h-5" />
+                <span>View Charts</span>
+              </button>
+              <button
+                onClick={checkAllStatus}
+                disabled={isChecking || entries.length === 0}
+                className="flex items-center gap-2 px-6 py-3 bg-white/20 hover:bg-white/30 text-white rounded-xl border border-white/30 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <RefreshCw
+                  className={`w-5 h-5 ${isChecking ? "animate-spin" : ""}`}
+                />
+                <span>Check Now</span>
+              </button>
+            </div>
           </div>
 
           {/* Stats */}
@@ -345,9 +383,58 @@ const Home = () => {
 
         {/* Expandable Endpoint List with Grid */}
         <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-6">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">
-            Monitored Endpoints ({filteredEntries.length})
-          </h2>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+            <h2 className="text-2xl font-bold text-gray-900">
+              Monitored Endpoints ({filteredEntries.length})
+            </h2>
+            {filteredEntries.length > 0 && (
+              <div className="flex gap-2">
+                {/* View Mode Toggle */}
+                <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
+                  <button
+                    onClick={() => setViewMode("grid")}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg font-medium transition-all ${
+                      viewMode === "grid"
+                        ? "bg-white text-[#1ca5b3] shadow-md"
+                        : "text-gray-600 hover:text-gray-900"
+                    }`}
+                  >
+                    <LayoutGrid className="w-4 h-4" />
+                    <span className="text-sm hidden sm:inline">Grid</span>
+                  </button>
+                  <button
+                    onClick={() => setViewMode("table")}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg font-medium transition-all ${
+                      viewMode === "table"
+                        ? "bg-white text-[#1ca5b3] shadow-md"
+                        : "text-gray-600 hover:text-gray-900"
+                    }`}
+                  >
+                    <Table className="w-4 h-4" />
+                    <span className="text-sm hidden sm:inline">Table</span>
+                  </button>
+                </div>
+
+                {/* Expand/Collapse buttons - only show in grid view */}
+                {viewMode === "grid" && (
+                  <>
+                    <button
+                      onClick={handleExpandAll}
+                      className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#1ca5b3] to-[#0e7c87] hover:from-[#0e7c87] hover:to-[#1ca5b3] text-white rounded-xl font-medium shadow-md hover:shadow-lg transition-all"
+                    >
+                      <span className="text-sm">Expand All</span>
+                    </button>
+                    <button
+                      onClick={handleCollapseAll}
+                      className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium shadow-md hover:shadow-lg transition-all"
+                    >
+                      <span className="text-sm">Collapse All</span>
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
 
           {filteredEntries.length === 0 ? (
             <div className="text-center py-16">
@@ -361,7 +448,130 @@ const Home = () => {
                 Try changing filters or adding a new configuration
               </p>
             </div>
+          ) : viewMode === "table" ? (
+            /* Table View */
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="bg-gradient-to-r from-[#1ca5b3] to-[#0e7c87] text-white">
+                    <th className="px-4 py-3 text-left text-sm font-semibold rounded-tl-xl">
+                      Status
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold">
+                      IP Address
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold">
+                      Port
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold">
+                      Refer Port Name
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold">
+                      Response Time
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold">
+                      Last Checked
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold">
+                      Emails
+                    </th>
+                    <th className="px-4 py-3 text-center text-sm font-semibold rounded-tr-xl">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredEntries.map((entry, index) => (
+                    <tr
+                      key={entry._id}
+                      className={`border-b border-gray-200 hover:bg-gray-50 transition-colors ${
+                        index % 2 === 0 ? "bg-white" : "bg-gray-50/50"
+                      }`}
+                    >
+                      <td className="px-4 py-3">
+                        <div
+                          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg ${getStatusColor(
+                            entry.status
+                          )} bg-white border-2 border-current/20 w-fit`}
+                        >
+                          {getStatusIcon(entry.status)}
+                          <span className="font-bold uppercase text-xs">
+                            {entry.status || "unknown"}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 font-mono text-sm text-gray-900">
+                        {entry.ip}
+                      </td>
+                      <td className="px-4 py-3 font-mono text-sm text-gray-900">
+                        {entry.port}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600">
+                        {entry.referPortName || "-"}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600">
+                        {entry.responseTime ? `${entry.responseTime}ms` : "-"}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600">
+                        {formatDateTime(entry.checkedAt)}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600 max-w-xs truncate">
+                        {entry?.emails?.length > 0
+                          ? entry.emails.join(", ")
+                          : "-"}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            onClick={() => handleEditClick(entry.configId, entry._id)}
+                            className="p-2 rounded-lg border text-amber-600 border-amber-300 bg-amber-50 hover:bg-amber-100 transition-all"
+                            title="Edit"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <Popconfirm
+                            title="Delete Configuration"
+                            description="Are you sure you want to delete this endpoint?"
+                            onConfirm={() =>
+                              deleteConfiguration(entry.configId, entry._id)
+                            }
+                            okText="Delete"
+                            okType="danger"
+                            cancelText="Cancel"
+                            icon={<QuestionCircleOutlined style={{ color: "red" }} />}
+                          >
+                            <button
+                              className="p-2 rounded-lg border text-red-600 border-red-300 bg-red-50 hover:bg-red-100 transition-all"
+                              title="Delete"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </Popconfirm>
+                          <button
+                            onClick={() => sendEmail(entry._id)}
+                            disabled={isLoading}
+                            className="p-2 rounded-lg border text-[#1ca5b3] border-[#1ca5b3]/40 bg-[#e6f7f8] hover:bg-[#d0f1f3] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                            title="Send Email"
+                          >
+                            <Mail className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleReportClick(entry)}
+                            disabled={isLoading}
+                            className="p-2 rounded-lg border text-green-400 border-green-400 bg-green-50 hover:bg-green-100 transition-all"
+                            title="Generate Report"
+                          >
+                            <ExceptionOutlined className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           ) : (
+            /* Grid View */
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {collapseItems.map((item) => (
                 <Collapse
@@ -370,6 +580,14 @@ const Home = () => {
                   bordered={false}
                   className="bg-transparent"
                   expandIconPosition="end"
+                  activeKey={expandedKeys.includes(item.key) ? [item.key] : []}
+                  onChange={(keys) => {
+                    if (keys.length > 0) {
+                      setExpandedKeys([...expandedKeys, item.key]);
+                    } else {
+                      setExpandedKeys(expandedKeys.filter((k) => k !== item.key));
+                    }
+                  }}
                 />
               ))}
             </div>
@@ -381,6 +599,13 @@ const Home = () => {
         <IPPortForm
           configId={editingEntry.configId}
           entryId={editingEntry.entryId}
+        />
+      )}
+
+      {chartModalVisible && (
+        <ChartModal
+          visible={chartModalVisible}
+          onClose={() => setChartModalVisible(false)}
         />
       )}
     </div>

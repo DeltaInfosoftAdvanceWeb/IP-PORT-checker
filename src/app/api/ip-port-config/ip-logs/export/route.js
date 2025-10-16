@@ -56,10 +56,10 @@ export async function GET(req) {
       "Refer Port Name": logDoc.referPortName || "-",
       "Status": log.status || "-",
       "Response Time (ms)": log.responseTime ?? "-",
+      "Comments":log.comment??"-",
       "Checked At": new Date(log.checkedAt).toLocaleString(),
     }));
 
-    // Create workbook & worksheet
     const worksheet = XLSX.utils.json_to_sheet(rows);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Logs");

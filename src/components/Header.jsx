@@ -69,9 +69,7 @@ export function Header() {
 
             {/* Buttons */}
             <div className="flex items-center gap-3 sm:gap-4">
-              <Label className="hidden sm:block text-sm md:text-base font-semibold text-gray-700">
-                Add IP/PORT
-              </Label>
+            
 
               {/* Add IP Button */}
               <Button
