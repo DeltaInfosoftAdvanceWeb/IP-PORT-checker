@@ -39,9 +39,10 @@ const ChartModal = ({ visible, onClose }) => {
   const [chartData, setChartData] = useState([]);
   const [dateRange, setDateRange] = useState([null, null]);
   const [preset, setPreset] = useState("all");
-  const [chartType, setChartType] = useState("line");
+  const [chartType, setChartType] = useState("area");
   const [configurations, setConfigurations] = useState([]);
   const [selectedConfig, setSelectedConfig] = useState("all");
+  const [dataType, setDataType] = useState("responseTime"); // "status" or "responseTime"
 
   const formatDateTime = (date, withTime = true) => {
     if (!date) return "-";
@@ -325,6 +326,84 @@ const ChartModal = ({ visible, onClose }) => {
     };
   };
 
+  // Prepare response time chart data
+  const prepareResponseTimeData = () => {
+    const groupedData = {};
+
+    chartData.forEach((log) => {
+      const key = `${log.ip}:${log.port}`;
+      if (!groupedData[key]) {
+        groupedData[key] = {
+          label: `${log.referPortName || key}`,
+          responseTimes: [],
+          timestamps: [],
+          statuses: [],
+        };
+      }
+
+      const timestamp = formatDateTime(log.checkedAt);
+      groupedData[key].timestamps.push(timestamp);
+      groupedData[key].responseTimes.push(log.responseTime || 0);
+      groupedData[key].statuses.push(log.status);
+    });
+
+    const allTimestamps = [
+      ...new Set(chartData.map((log) => formatDateTime(log.checkedAt))),
+    ].sort();
+
+    const datasets = [];
+    const colors = [
+      { border: "#1ca5b3", bg: "rgba(28, 165, 179, 0.5)" },
+      { border: "#10b981", bg: "rgba(16, 185, 129, 0.5)" },
+      { border: "#f59e0b", bg: "rgba(245, 158, 11, 0.5)" },
+      { border: "#ef4444", bg: "rgba(239, 68, 68, 0.5)" },
+      { border: "#8b5cf6", bg: "rgba(139, 92, 246, 0.5)" },
+      { border: "#ec4899", bg: "rgba(236, 72, 153, 0.5)" },
+    ];
+
+    Object.entries(groupedData).forEach(([key, data], index) => {
+      const color = colors[index % colors.length];
+
+      // Create point colors array - red for offline (0 response time), normal color for online
+      const pointBackgroundColors = data.responseTimes.map((rt, idx) =>
+        rt === 0 || data.statuses[idx] === "offline" ? "#ef4444" : color.border
+      );
+
+      const pointBorderColors = data.responseTimes.map((rt, idx) =>
+        rt === 0 || data.statuses[idx] === "offline" ? "#dc2626" : color.border
+      );
+
+      datasets.push({
+        label: data.label,
+        data: data.responseTimes,
+        borderColor: color.border,
+        backgroundColor: color.bg,
+        fill: chartType === "area",
+        tension: 0.4,
+        borderWidth: 2,
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        pointBackgroundColor: pointBackgroundColors,
+        pointBorderColor: pointBorderColors,
+        pointBorderWidth: 2,
+      });
+    });
+
+    return {
+      labels: allTimestamps.slice(-50),
+      datasets: datasets.map((ds) => ({
+        ...ds,
+        data: ds.data.slice(-50),
+        pointBackgroundColor: Array.isArray(ds.pointBackgroundColor)
+          ? ds.pointBackgroundColor.slice(-50)
+          : ds.pointBackgroundColor,
+        pointBorderColor: Array.isArray(ds.pointBorderColor)
+          ? ds.pointBorderColor.slice(-50)
+          : ds.pointBorderColor,
+      })),
+    };
+  };
+
   // Prepare status distribution chart
   const prepareStatusChart = () => {
     const statusCount = { online: 0, offline: 0 };
@@ -436,6 +515,51 @@ const ChartModal = ({ visible, onClose }) => {
     },
   };
 
+  const responseTimeChartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: "top",
+      },
+      title: {
+        display: true,
+        text: "Response Time Over Time (Red dots = Offline)",
+        font: {
+          size: 16,
+          weight: "bold",
+        },
+      },
+      tooltip: {
+        mode: "index",
+        intersect: false,
+        callbacks: {
+          label: function (context) {
+            const value = context.parsed.y;
+            const status = value === 0 ? "Offline" : "Online";
+            const statusColor = value === 0 ? "🔴" : "🟢";
+            return `${statusColor} ${context.dataset.label}: ${value}ms (${status})`;
+          },
+        },
+      },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        title: {
+          display: true,
+          text: "Response Time (ms)",
+        },
+      },
+      x: {
+        ticks: {
+          maxRotation: 45,
+          minRotation: 45,
+        },
+      },
+    },
+  };
+
   const barChartOptions = {
     responsive: true,
     maintainAspectRatio: false,
@@ -471,7 +595,7 @@ const ChartModal = ({ visible, onClose }) => {
       <div className="space-y-4">
         {/* Filters */}
         <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Configuration
@@ -490,6 +614,20 @@ const ChartModal = ({ visible, onClose }) => {
                     {config.referPortName || `${config.ip}:${config.port}`}
                   </Option>
                 ))}
+              </Select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Data Type
+              </label>
+              <Select
+                value={dataType}
+                onChange={setDataType}
+                className="w-full"
+              >
+                <Option value="status">Status (Online/Offline)</Option>
+                <Option value="responseTime">Response Time</Option>
               </Select>
             </div>
 
@@ -576,7 +714,16 @@ const ChartModal = ({ visible, onClose }) => {
           </div>
         ) : (
           <div className="space-y-6">
-            {chartType === "line" ? (
+            {dataType === "responseTime" ? (
+              <div className="bg-white p-6 rounded-xl border border-gray-200">
+                <div style={{ height: "400px" }}>
+                  <Line
+                    data={prepareResponseTimeData()}
+                    options={responseTimeChartOptions}
+                  />
+                </div>
+              </div>
+            ) : chartType === "line" ? (
               <div className="bg-white p-6 rounded-xl border border-gray-200">
                 <div style={{ height: "400px" }}>
                   <Line data={prepareChartData()} options={chartOptions} />
