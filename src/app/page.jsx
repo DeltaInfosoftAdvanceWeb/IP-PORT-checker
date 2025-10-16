@@ -15,6 +15,7 @@ import {
   LayoutGrid,
   Table,
   BarChart3,
+  Database,
 } from "lucide-react";
 import { Popconfirm, Spin, Select, Input, Collapse } from "antd";
 import { ExceptionOutlined, QuestionCircleOutlined } from "@ant-design/icons";
@@ -23,6 +24,7 @@ import IPPortForm from "@/components/IPPortForm";
 import toast from "react-hot-toast";
 import ReportModal from "@/components/ReportModal";
 import ChartModal from "@/components/ChartModal";
+import BackupLogsModal from "@/components/BackupLogsModal";
 const { Option } = Select;
 
 const Home = () => {
@@ -50,6 +52,7 @@ const Home = () => {
   const [expandedKeys, setExpandedKeys] = useState([]);
   const [viewMode, setViewMode] = useState("grid"); // "grid" or "table"
   const [chartModalVisible, setChartModalVisible] = useState(false);
+  const [backupLogsModalVisible, setBackupLogsModalVisible] = useState(false);
 
 const formatDateTime = (date, withTime = true) => {
     if (!date) return "-";
@@ -315,6 +318,13 @@ const formatDateTime = (date, withTime = true) => {
               >
                 <BarChart3 className="w-5 h-5" />
                 <span>View Charts</span>
+              </button>
+              <button
+                onClick={() => setBackupLogsModalVisible(true)}
+                className="flex items-center gap-2 px-6 py-3 bg-white/20 hover:bg-white/30 text-white rounded-xl border border-white/30 font-medium"
+              >
+                <Database className="w-5 h-5" />
+                <span>Backup Logs</span>
               </button>
               <button
                 onClick={checkAllStatus}
@@ -606,6 +616,13 @@ const formatDateTime = (date, withTime = true) => {
         <ChartModal
           visible={chartModalVisible}
           onClose={() => setChartModalVisible(false)}
+        />
+      )}
+
+      {backupLogsModalVisible && (
+        <BackupLogsModal
+          visible={backupLogsModalVisible}
+          onClose={() => setBackupLogsModalVisible(false)}
         />
       )}
     </div>

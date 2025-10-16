@@ -6,13 +6,15 @@ export async function POST(request) {
   try {
     await connectToDatabase();
 
-    const { startDate, endDate, entryId } = await request.json();
+    const { startDate, endDate, entryId, entryIds } = await request.json();
 
     // Build query
     const query = {};
 
-    // Filter by entryId if provided
-    if (entryId && entryId !== "all") {
+    // Handle multiple entryIds (new) or single entryId (backward compatibility)
+    if (entryIds && Array.isArray(entryIds) && entryIds.length > 0) {
+      query.entryId = { $in: entryIds };
+    } else if (entryId && entryId !== "all") {
       query.entryId = entryId;
     }
 

@@ -41,7 +41,7 @@ const ChartModal = ({ visible, onClose }) => {
   const [preset, setPreset] = useState("all");
   const [chartType, setChartType] = useState("area");
   const [configurations, setConfigurations] = useState([]);
-  const [selectedConfig, setSelectedConfig] = useState("all");
+  const [selectedConfig, setSelectedConfig] = useState([]); // Changed to array for multiple selection
   const [dataType, setDataType] = useState("responseTime"); // "status" or "responseTime"
 
   const formatDateTime = (date, withTime = true) => {
@@ -93,9 +93,12 @@ const ChartModal = ({ visible, onClose }) => {
     }
   };
 
-  const fetchLogs = async (startDate = null, endDate = null, entryId = null) => {
+  const fetchLogs = async (startDate = null, endDate = null, entryIds = null) => {
     setLoading(true);
     try {
+      // Determine which IDs to use
+      const idsToFetch = entryIds !== null ? entryIds : selectedConfig;
+
       const response = await fetch("/api/ip-port-config/logs-chart", {
         method: "POST",
         headers: {
@@ -104,7 +107,7 @@ const ChartModal = ({ visible, onClose }) => {
         body: JSON.stringify({
           startDate: startDate ? startDate.toISOString() : null,
           endDate: endDate ? endDate.toISOString() : null,
-          entryId: entryId || selectedConfig,
+          entryIds: Array.isArray(idsToFetch) && idsToFetch.length > 0 ? idsToFetch : null,
         }),
       });
 
@@ -588,7 +591,7 @@ const ChartModal = ({ visible, onClose }) => {
       }
       open={visible}
       onCancel={onClose}
-      width={1200}
+      width={1500}
       footer={null}
       className="chart-modal"
     >
@@ -598,17 +601,18 @@ const ChartModal = ({ visible, onClose }) => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Configuration
+                Configurations
               </label>
               <Select
+                mode="multiple"
                 value={selectedConfig}
                 onChange={handleConfigChange}
                 className="w-full"
                 showSearch
                 optionFilterProp="children"
-                placeholder="Select configuration"
+                placeholder="Select configurations"
+                maxTagCount="responsive"
               >
-                <Option value="all">All Configurations</Option>
                 {configurations.map((config) => (
                   <Option key={config._id} value={config._id}>
                     {config.referPortName || `${config.ip}:${config.port}`}
