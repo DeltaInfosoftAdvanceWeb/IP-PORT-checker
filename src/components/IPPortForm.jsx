@@ -260,15 +260,15 @@ const IPPortForm = ({ configId, entryId }) => {
     const fetchConfigData = async () => {
       if (isEditing && configId && entryId) {
         const response = await getById(configId, entryId);
-        if (response.success && response.IpConfigData) {
+        if (response.success && response.entry) {
           toast.success("IP config fetched successfully");
           setEntries([
             {
-              ...response.IpConfigData,
-              id: response.IpConfigData._id?.toString() || "1",
-              emails: Array.isArray(response.IpConfigData.emails)
-                ? response.IpConfigData.emails.join(", ")
-                : response.IpConfigData.emails || "",
+              ...response.entry,
+              id: response.entry._id?.toString() || "1",
+              emails: Array.isArray(response.entry.emails)
+                ? response.entry.emails.join(", ")
+                : response.entry.emails || "",
             },
           ]);
         }

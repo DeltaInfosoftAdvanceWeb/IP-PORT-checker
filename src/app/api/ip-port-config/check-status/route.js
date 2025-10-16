@@ -5,6 +5,7 @@ import { connectToDatabase } from "../../../../../dbConfig";
 import IPPortCheckedLog from "@/modals/checkedLogSchema";
 
 //  Check a single port 
+//  Check a single port 
 function checkPort(ip, port, timeout = 3000) {
   return new Promise((resolve) => {
     const socket = new net.Socket();
@@ -38,6 +39,7 @@ function checkPort(ip, port, timeout = 3000) {
 }
 
 //  Generate comment for log 
+//  Generate comment for log 
 function generateComment(status, isManual = false) {
   const prefix = isManual ? "[Manual] " : "[Auto] ";
   if (status === "online") return prefix + "Active / Running";
@@ -45,6 +47,7 @@ function generateComment(status, isManual = false) {
   return prefix + "Status unknown";
 }
 
+//  Core checking logic 
 //  Core checking logic 
 async function performStatusCheck(isManual = false) {
   await connectToDatabase();
@@ -70,6 +73,7 @@ async function performStatusCheck(isManual = false) {
       try {
         const result = await checkPort(ip, parseInt(port));
 
+        //  Update IPPortConfig entry status 
         //  Update IPPortConfig entry status 
         await IPPortConfig.updateOne(
           { _id: configId, "entries._id": entryId },
@@ -145,6 +149,7 @@ async function performStatusCheck(isManual = false) {
 }
 
 //  POST: Manual check 
+//  POST: Manual check 
 export async function POST() {
   try {
     const result = await performStatusCheck(true);
@@ -162,6 +167,7 @@ export async function POST() {
   }
 }
 
+//  GET: Can be used for manual trigger or health check 
 //  GET: Can be used for manual trigger or health check 
 export async function GET() {
   try {
