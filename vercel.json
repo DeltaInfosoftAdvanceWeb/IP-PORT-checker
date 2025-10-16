@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/ip-port-config/cron/check-status",
-      "schedule": "0 * * * *"
+      "schedule": "*/10 * * * *"
     }
   ]
 }

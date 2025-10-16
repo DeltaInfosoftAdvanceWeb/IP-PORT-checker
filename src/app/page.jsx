@@ -126,7 +126,7 @@ const formatDateTime = (date, withTime = true) => {
   useEffect(() => {
     const interval = setInterval(() => {
       fetchConfigurations(true);
-    }, 60000);
+    }, 600000); // 10 minutes (600000ms)
 
     return () => clearInterval(interval);
   }, []);
