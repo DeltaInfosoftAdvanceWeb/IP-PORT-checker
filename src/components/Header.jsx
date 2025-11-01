@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { PlusCircle, LogOut, LoaderCircle } from "lucide-react";
+import { PlusCircle, LogOut, LoaderCircle, ArrowLeftRight } from "lucide-react";
 import IPPortForm from "./IPPortForm";
 import { Button } from "@/components/ui/button";
 import { Label } from "./ui/label";
@@ -69,7 +69,14 @@ export function Header() {
 
             {/* Buttons */}
             <div className="flex items-center gap-3 sm:gap-4">
-            
+              {/* DB Sync Button */}
+              <Button
+                onClick={() => router.push("/db-sync")}
+                className="flex items-center bg-[#10b981] hover:bg-[#059669] text-white rounded-lg shadow-sm px-3 sm:px-4 py-2 transition-all duration-200"
+              >
+                <ArrowLeftRight className="w-4 h-4 sm:w-5 sm:h-5 mr-1" />
+                <span className="hidden sm:inline">DB Sync</span>
+              </Button>
 
               {/* Add IP Button */}
               <Button
