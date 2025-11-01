@@ -939,9 +939,30 @@ const DBSyncTool = () => {
                     {result.message}
                   </p>
                   {result.rowsAffected !== undefined && (
-                    <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-700 bg-white/60 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg w-fit">
-                      <span className="font-semibold">Rows:</span>
-                      <span className="font-bold text-[#1ca5b3]">{result.rowsAffected.toLocaleString()}</span>
+                    <div className="flex flex-wrap gap-2">
+                      {result.rowsInserted > 0 && (
+                        <div className="flex items-center gap-1.5 text-xs sm:text-sm text-gray-700 bg-green-50 border border-green-200 px-2 sm:px-3 py-1 rounded-lg">
+                          <span className="font-semibold">📥 Inserted:</span>
+                          <span className="font-bold text-green-700">{result.rowsInserted.toLocaleString()}</span>
+                        </div>
+                      )}
+                      {result.rowsUpdated > 0 && (
+                        <div className="flex items-center gap-1.5 text-xs sm:text-sm text-gray-700 bg-blue-50 border border-blue-200 px-2 sm:px-3 py-1 rounded-lg">
+                          <span className="font-semibold">🔄 Updated:</span>
+                          <span className="font-bold text-blue-700">{result.rowsUpdated.toLocaleString()}</span>
+                        </div>
+                      )}
+                      {result.rowsDeleted > 0 && (
+                        <div className="flex items-center gap-1.5 text-xs sm:text-sm text-gray-700 bg-red-50 border border-red-200 px-2 sm:px-3 py-1 rounded-lg">
+                          <span className="font-semibold">🗑️ Deleted:</span>
+                          <span className="font-bold text-red-700">{result.rowsDeleted.toLocaleString()}</span>
+                        </div>
+                      )}
+                      {result.rowsAffected === 0 && (
+                        <div className="flex items-center gap-1.5 text-xs sm:text-sm text-gray-700 bg-gray-50 border border-gray-200 px-2 sm:px-3 py-1 rounded-lg">
+                          <span className="font-semibold">No changes</span>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
