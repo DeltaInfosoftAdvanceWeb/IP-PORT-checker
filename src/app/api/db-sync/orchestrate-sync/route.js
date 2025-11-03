@@ -45,7 +45,8 @@ async function agentRequest(agentUrl, endpoint, body) {
       body,
       headers: {
         'Cookie': `authToken=${authToken}`
-      }
+      },
+      agentAuthKey: process.env.NEXT_PUBLIC_PASS_KEY
     }),
   });
 
