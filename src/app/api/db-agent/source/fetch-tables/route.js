@@ -5,8 +5,8 @@ import { corsResponse, handleCorsPreFlight } from "../../middleware/cors.js";
 /**
  * Handle preflight OPTIONS request
  */
-export async function OPTIONS() {
-  return handleCorsPreFlight();
+export async function OPTIONS(req) {
+  return handleCorsPreFlight(req);
 }
 
 /**
@@ -22,7 +22,8 @@ export async function POST(req) {
     console.error('❌ Authentication failed:', authResult.error);
     return corsResponse(
       { success: false, message: authResult.error },
-      401
+      401,
+      req
     );
   }
 
@@ -39,7 +40,8 @@ export async function POST(req) {
     if (!dbType || (!config && !connectionUrl)) {
       return corsResponse(
         { success: false, message: "Database type and connection details are required" },
-        400
+        400,
+        req
       );
     }
 
@@ -110,7 +112,8 @@ export async function POST(req) {
 
     return corsResponse(
       { success: true, tables },
-      200
+      200,
+      req
     );
 
   } catch (error) {
@@ -129,7 +132,8 @@ export async function POST(req) {
         success: false,
         message: error.message || "Failed to fetch tables",
       },
-      500
+      500,
+      req
     );
   }
 }

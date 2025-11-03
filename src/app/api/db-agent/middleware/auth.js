@@ -1,47 +1,32 @@
 /**
  * Authentication middleware for DB Agent APIs
- * Validates auth token from cookies to ensure secure communication
+ * Note: Main authentication is handled by src/middleware.js
+ * This is just a helper to check if auth passed through
  */
 
 import { cookies } from 'next/headers';
 
 /**
  * Validate authentication token from request
+ * Since src/middleware.js already validates JWT, we just check if token exists
  * @param {Request} req - Next.js request object
  * @returns {Object} - { authenticated: boolean, error?: string }
  */
 export async function validateAgentAuth(req) {
   try {
-    // Check for auth token in Authorization header (for agent-to-agent calls)
-    const authHeader = req.headers.get('authorization');
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.substring(7);
-
-      // For agent calls, validate the token matches expected format
-      if (token && token.length > 20) {
-        return { authenticated: true, token };
-      }
-    }
-
-    // Check for auth token in cookies (for direct browser calls)
+    // Main middleware already validated the JWT token
+    // We just need to confirm the cookie exists
     const cookieStore = cookies();
     const authToken = cookieStore.get('authToken')?.value;
 
     if (!authToken) {
       return {
         authenticated: false,
-        error: 'Authentication required. Please login to access this endpoint.'
+        error: 'Authentication required. No auth token found in cookies.'
       };
     }
 
-    // Validate token exists and is not empty
-    if (authToken.length < 20) {
-      return {
-        authenticated: false,
-        error: 'Invalid authentication token.'
-      };
-    }
-
+    // Token exists and was validated by middleware
     return { authenticated: true, token: authToken };
   } catch (error) {
     console.error('Auth validation error:', error);

@@ -34,9 +34,10 @@ async function agentRequest(agentUrl, endpoint, body) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${authToken}`
+      'Cookie': `authToken=${authToken}`
     },
-    body: JSON.stringify(body)
+    body: JSON.stringify(body),
+    credentials: 'include' // Important: include cookies in cross-origin requests
   });
 
   if (!response.ok) {

@@ -50,5 +50,7 @@ export const config = {
     "/login",
     "/signup",
     "/api/login",
+    "/api/db-agent/:path*", // Protect all agent APIs
+    "/api/db-sync/:path*",  // Protect all sync APIs
   ],
 };
