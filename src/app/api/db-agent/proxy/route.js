@@ -81,8 +81,9 @@ export async function POST(req) {
 
     // Try to parse response as JSON
     let data;
+    let responseText;
     try {
-      const responseText = await response.text();
+      responseText = await response.text();
       data = JSON.parse(responseText);
 
       // Log the response for debugging
@@ -101,15 +102,26 @@ export async function POST(req) {
       console.error(`❌ [PROXY] Failed to parse agent response as JSON:`);
       console.error(`   Target: ${targetUrl}`);
       console.error(`   Status: ${response.status}`);
+      console.error(`   Content-Type: ${response.headers.get('content-type')}`);
       console.error(`   Parse Error: ${parseError.message}`);
+      console.error(`   Response Preview (first 500 chars):`);
+      console.error(responseText.substring(0, 500));
+
+      // Check if it's HTML (common issue)
+      const isHtml = responseText.trim().startsWith('<!DOCTYPE') || responseText.trim().startsWith('<html');
 
       return NextResponse.json(
         {
           success: false,
-          message: `Agent returned invalid response (not JSON). Status: ${response.status}`,
+          message: isHtml
+            ? `Agent returned HTML instead of JSON. This usually means the endpoint doesn't exist or there's a routing issue. Check that the agent is running the correct API.`
+            : `Agent returned invalid response (not JSON). Status: ${response.status}. Response preview: ${responseText.substring(0, 100)}...`,
           error: "INVALID_RESPONSE",
           targetUrl,
           statusCode: response.status,
+          contentType: response.headers.get('content-type'),
+          responsePreview: responseText.substring(0, 500),
+          isHtml,
         },
         { status: 502 }
       );

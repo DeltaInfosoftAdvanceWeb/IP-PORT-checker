@@ -447,13 +447,22 @@ const DBSyncTool = () => {
         console.error(`   Message: ${data.message}`);
         console.error(`   Target URL: ${data.targetUrl || 'N/A'}`);
 
+        // Log additional details for INVALID_RESPONSE errors
+        if (data.error === 'INVALID_RESPONSE') {
+          console.error(`   Content-Type: ${data.contentType || 'N/A'}`);
+          console.error(`   Is HTML: ${data.isHtml ? 'Yes' : 'No'}`);
+          console.error(`   Response Preview:`, data.responsePreview);
+        }
+
         const errorMsg = data.error === 'NETWORK_ERROR'
           ? `Cannot connect to source agent. ${data.message}`
           : data.error === 'TIMEOUT'
           ? `Source agent timeout. ${data.message}`
+          : data.error === 'INVALID_RESPONSE'
+          ? `Source agent error: ${data.message}${data.isHtml ? ' The endpoint might not exist.' : ''}`
           : data.message || "Failed to fetch source tables";
 
-        toast.error(errorMsg, { duration: 5000 });
+        toast.error(errorMsg, { duration: 7000 });
       }
     } catch (error) {
       console.error("❌ [Source] Unexpected error:", error);
@@ -560,13 +569,22 @@ const DBSyncTool = () => {
         console.error(`   Message: ${data.message}`);
         console.error(`   Target URL: ${data.targetUrl || 'N/A'}`);
 
+        // Log additional details for INVALID_RESPONSE errors
+        if (data.error === 'INVALID_RESPONSE') {
+          console.error(`   Content-Type: ${data.contentType || 'N/A'}`);
+          console.error(`   Is HTML: ${data.isHtml ? 'Yes' : 'No'}`);
+          console.error(`   Response Preview:`, data.responsePreview);
+        }
+
         const errorMsg = data.error === 'NETWORK_ERROR'
           ? `Cannot connect to target agent. ${data.message}`
           : data.error === 'TIMEOUT'
           ? `Target agent timeout. ${data.message}`
+          : data.error === 'INVALID_RESPONSE'
+          ? `Target agent error: ${data.message}${data.isHtml ? ' The endpoint might not exist.' : ''}`
           : data.message || "Failed to fetch target tables";
 
-        toast.error(errorMsg, { duration: 5000 });
+        toast.error(errorMsg, { duration: 7000 });
       }
     } catch (error) {
       console.error("❌ [Target] Unexpected error:", error);
