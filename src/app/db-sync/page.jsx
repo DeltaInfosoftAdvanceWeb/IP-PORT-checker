@@ -330,6 +330,7 @@ const DBSyncTool = () => {
   const [sourceAgentUrl, setSourceAgentUrl] = useState(""); // Optional agent URL for source
   const [targetAgentUrl, setTargetAgentUrl] = useState(""); // Optional agent URL for target
   const [useAgentMode, setUseAgentMode] = useState(false); // Toggle for agent mode
+  const [agentAuthKey, setAgentAuthKey] = useState(""); // Authentication key for agents
 
   const handleSourceDBChange = (value) => {
     setSourceDB(value);
@@ -408,6 +409,7 @@ const DBSyncTool = () => {
         requestBody = {
           targetUrl: `${sourceAgentUrl}/api/db-agent/source/fetch-tables`,
           method: "POST",
+          agentAuthKey: agentAuthKey || undefined, // Pass auth key for agent authentication
           body: {
             dbType: sourceDB,
             config: sourceConfigMode === "url" ? null : sourceConfig,
@@ -517,6 +519,7 @@ const DBSyncTool = () => {
         requestBody = {
           targetUrl: `${targetAgentUrl}/api/db-agent/target/fetch-tables`,
           method: "POST",
+          agentAuthKey: agentAuthKey || undefined, // Pass auth key for agent authentication
           body: {
             dbType: targetDB,
             config: targetConfigMode === "url" ? null : targetConfig,
@@ -781,8 +784,25 @@ const DBSyncTool = () => {
                       <li>Enter agent URL (http://ip:port) for remote database access</li>
                       <li>Agent application must be running on the database network</li>
                       <li>Supports batch processing (5000 rows) & concurrent sync (3 tables)</li>
+                      <li><strong>Authentication required</strong> - Enter the NEXT_PUBLIC_PASS_KEY from agent's .env</li>
                     </ul>
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Agent Authentication Key * (Required for remote agents)
+                  </label>
+                  <Input.Password
+                    value={agentAuthKey}
+                    onChange={(e) => setAgentAuthKey(e.target.value)}
+                    placeholder="Enter NEXT_PUBLIC_PASS_KEY from agent server"
+                    size="large"
+                    prefix={<span className="text-gray-400">🔑</span>}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    This is the NEXT_PUBLIC_PASS_KEY value from the agent server's .env file
+                  </p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

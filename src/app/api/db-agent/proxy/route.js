@@ -10,7 +10,7 @@ export async function POST(req) {
   console.log('\n🔶 [PROXY] DB Agent Proxy Request Started');
 
   try {
-    const { targetUrl, method = "POST", body, headers = {} } = await req.json();
+    const { targetUrl, method = "POST", body, headers = {}, agentAuthKey } = await req.json();
 
     if (!targetUrl) {
       console.error('❌ [PROXY] Target URL is missing');
@@ -24,20 +24,46 @@ export async function POST(req) {
     console.log(`   Target: ${targetUrl}`);
     console.log(`   Body:`, body ? JSON.stringify(body).substring(0, 200) + '...' : 'none');
 
+    // Get authentication token from the original request cookies
+    const cookieHeader = req.headers.get('cookie');
+    const authToken = cookieHeader?.split(';')
+      .find(c => c.trim().startsWith('authToken='))
+      ?.split('=')[1];
+
+    console.log(`   Auth Token: ${authToken ? '✓ Present' : '✗ Missing'}`);
+    console.log(`   Agent Auth Key: ${agentAuthKey ? '✓ Provided' : '✗ Not provided'}`);
+
     // Forward the request to the target agent with timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+    // Build headers with auth token
+    const requestHeaders = {
+      "Content-Type": "application/json",
+      ...headers,
+    };
+
+    // Use agent auth key if provided, otherwise use authToken
+    if (agentAuthKey) {
+      // Add agent auth key as a header for agent-to-agent auth
+      requestHeaders['x-agent-auth-key'] = agentAuthKey;
+      console.log(`   Using agent auth key for authentication`);
+    } else if (authToken) {
+      // Fallback to cookie-based auth
+      requestHeaders['Cookie'] = `authToken=${authToken}`;
+      console.log(`   Using cookie-based authentication`);
+    }
+
+    console.log(`   Headers:`, Object.keys(requestHeaders));
 
     let response;
     try {
       response = await fetch(targetUrl, {
         method,
-        headers: {
-          "Content-Type": "application/json",
-          ...headers,
-        },
+        headers: requestHeaders,
         body: body ? JSON.stringify(body) : undefined,
         signal: controller.signal,
+        credentials: 'include', // Important for cookies
       });
       clearTimeout(timeoutId);
     } catch (fetchError) {

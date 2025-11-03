@@ -8,26 +8,43 @@ import { cookies } from 'next/headers';
 
 /**
  * Validate authentication token from request
- * Since src/middleware.js already validates JWT, we just check if token exists
+ * Supports both cookie-based auth and agent-to-agent auth key
  * @param {Request} req - Next.js request object
  * @returns {Object} - { authenticated: boolean, error?: string }
  */
 export async function validateAgentAuth(req) {
   try {
-    // Main middleware already validated the JWT token
-    // We just need to confirm the cookie exists
+    // Check for agent-to-agent authentication key first
+    const agentAuthKey = req.headers.get('x-agent-auth-key');
+    const expectedAuthKey = process.env.NEXT_PUBLIC_PASS_KEY;
+
+    if (agentAuthKey) {
+      console.log('   🔑 Agent auth key detected, validating...');
+      if (agentAuthKey === expectedAuthKey) {
+        console.log('   ✅ Agent auth key valid');
+        return { authenticated: true, authMethod: 'agent-key' };
+      } else {
+        console.log('   ❌ Agent auth key invalid');
+        return {
+          authenticated: false,
+          error: 'Invalid agent authentication key'
+        };
+      }
+    }
+
+    // Fallback to cookie-based authentication
     const cookieStore = cookies();
     const authToken = cookieStore.get('authToken')?.value;
 
     if (!authToken) {
       return {
         authenticated: false,
-        error: 'Authentication required. No auth token found in cookies.'
+        error: 'Authentication required. No auth token or agent key found.'
       };
     }
 
     // Token exists and was validated by middleware
-    return { authenticated: true, token: authToken };
+    return { authenticated: true, token: authToken, authMethod: 'cookie' };
   } catch (error) {
     console.error('Auth validation error:', error);
     return {
