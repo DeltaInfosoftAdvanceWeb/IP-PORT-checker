@@ -327,6 +327,9 @@ const DBSyncTool = () => {
   const [showExistingTables, setShowExistingTables] = useState(true);
   const [targetFetched, setTargetFetched] = useState(false);
   const [syncStrategy, setSyncStrategy] = useState("replace"); // "replace" or "merge"
+  const [sourceAgentUrl, setSourceAgentUrl] = useState(""); // Optional agent URL for source
+  const [targetAgentUrl, setTargetAgentUrl] = useState(""); // Optional agent URL for target
+  const [useAgentMode, setUseAgentMode] = useState(false); // Toggle for agent mode
 
   const handleSourceDBChange = (value) => {
     setSourceDB(value);
@@ -397,7 +400,12 @@ const DBSyncTool = () => {
 
     setIsLoadingSource(true);
     try {
-      const response = await fetch("/api/db-sync/fetch-tables", {
+      // Determine endpoint based on agent mode
+      const endpoint = useAgentMode && sourceAgentUrl
+        ? `${sourceAgentUrl}/api/db-agent/source/fetch-tables`
+        : "/api/db-sync/fetch-tables";
+
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -410,7 +418,7 @@ const DBSyncTool = () => {
       const data = await response.json();
       if (data.success) {
         setSourceTables(data.tables);
-        toast.success(`Fetched ${data.tables.length} tables from source`);
+        toast.success(`Fetched ${data.tables.length} tables from source${useAgentMode ? ' (via agent)' : ''}`);
       } else {
         toast.error(data.message || "Failed to fetch source tables");
       }
@@ -459,7 +467,12 @@ const DBSyncTool = () => {
 
     setIsLoadingTarget(true);
     try {
-      const response = await fetch("/api/db-sync/fetch-tables", {
+      // Determine endpoint based on agent mode
+      const endpoint = useAgentMode && targetAgentUrl
+        ? `${targetAgentUrl}/api/db-agent/target/fetch-tables`
+        : "/api/db-sync/fetch-tables";
+
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -479,12 +492,12 @@ const DBSyncTool = () => {
           const existingTables = sourceTables.filter(table => data.tables.includes(table));
           if (existingTables.length > 0) {
             setSelectedTables(existingTables);
-            toast.success(`Fetched ${data.tables.length} tables from target. ${existingTables.length} existing tables auto-selected.`);
+            toast.success(`Fetched ${data.tables.length} tables from target${useAgentMode ? ' (via agent)' : ''}. ${existingTables.length} existing tables auto-selected.`);
           } else {
-            toast.success(`Fetched ${data.tables.length} tables from target`);
+            toast.success(`Fetched ${data.tables.length} tables from target${useAgentMode ? ' (via agent)' : ''}`);
           }
         } else {
-          toast.success(`Fetched ${data.tables.length} tables from target`);
+          toast.success(`Fetched ${data.tables.length} tables from target${useAgentMode ? ' (via agent)' : ''}`);
         }
       } else {
         toast.error(data.message || "Failed to fetch target tables");
@@ -528,7 +541,12 @@ const DBSyncTool = () => {
     setSyncProgress([]);
 
     try {
-      const response = await fetch("/api/db-sync/sync-data", {
+      // Use orchestrator API if agent mode is enabled, otherwise use direct sync
+      const endpoint = useAgentMode
+        ? "/api/db-sync/orchestrate-sync"
+        : "/api/db-sync/sync-data";
+
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -538,6 +556,8 @@ const DBSyncTool = () => {
           targetConfig: targetConfigMode === "url" ? null : targetConfig,
           sourceConnectionUrl: sourceConfigMode === "url" ? sourceConnectionUrl : null,
           targetConnectionUrl: targetConfigMode === "url" ? targetConnectionUrl : null,
+          sourceAgentUrl: useAgentMode ? sourceAgentUrl : undefined,
+          targetAgentUrl: useAgentMode ? targetAgentUrl : undefined,
           tables: selectedTables,
           syncStrategy: syncStrategy,
         }),
@@ -634,6 +654,88 @@ const DBSyncTool = () => {
                 <span className="font-medium">Smart Type Mapping</span>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Agent Mode Configuration */}
+        <div className="bg-white rounded-2xl sm:rounded-3xl shadow-xl border border-gray-100 overflow-hidden mb-3 sm:mb-6">
+          <div className="bg-gradient-to-r from-cyan-50 to-blue-50 border-b border-gray-100 px-3 sm:px-6 py-3 sm:py-4">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="bg-gradient-to-br from-cyan-500 to-blue-600 p-2 rounded-lg shadow-lg">
+                <Server className="w-4 sm:w-5 h-4 sm:h-5 text-white" />
+              </div>
+              <div className="flex-1">
+                <h2 className="text-base sm:text-lg font-bold text-gray-900">Connection Mode</h2>
+                <p className="text-[10px] sm:text-xs text-gray-600">Choose between direct or agent-based sync</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-3 sm:p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={useAgentMode}
+                  onChange={(e) => setUseAgentMode(e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
+                />
+                <span className="text-sm font-semibold text-gray-700">
+                  Enable Agent Mode (Distributed Sync)
+                </span>
+              </label>
+            </div>
+
+            {useAgentMode && (
+              <div className="space-y-4 p-4 bg-gradient-to-br from-cyan-50 to-blue-50 rounded-xl border border-cyan-200">
+                <div className="flex items-start gap-2 text-xs text-gray-700 bg-white p-3 rounded-lg border border-cyan-200">
+                  <span className="text-lg">ℹ️</span>
+                  <div>
+                    <p className="font-semibold mb-1">Agent Mode allows sync between remote databases:</p>
+                    <ul className="list-disc ml-4 space-y-0.5 text-[11px]">
+                      <li>Leave URLs empty to use same network (direct connection)</li>
+                      <li>Enter agent URL (http://ip:port) for remote database access</li>
+                      <li>Agent application must be running on the database network</li>
+                      <li>Supports batch processing (5000 rows) & concurrent sync (3 tables)</li>
+                    </ul>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Source Agent URL (Optional)
+                    </label>
+                    <Input
+                      value={sourceAgentUrl}
+                      onChange={(e) => setSourceAgentUrl(e.target.value)}
+                      placeholder="http://192.168.1.100:3000 or leave empty"
+                      size="large"
+                      prefix={<Server className="w-4 h-4 text-gray-400" />}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Leave empty if source DB is on same network
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Target Agent URL (Optional)
+                    </label>
+                    <Input
+                      value={targetAgentUrl}
+                      onChange={(e) => setTargetAgentUrl(e.target.value)}
+                      placeholder="http://192.168.1.200:3000 or leave empty"
+                      size="large"
+                      prefix={<Server className="w-4 h-4 text-gray-400" />}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Leave empty if target DB is on same network
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
