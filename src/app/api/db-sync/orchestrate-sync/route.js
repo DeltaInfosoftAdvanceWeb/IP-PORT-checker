@@ -18,6 +18,7 @@ const CONCURRENT_TABLES = 3;
 
 /**
  * Helper: Make authenticated request to agent
+ * Now uses internal proxy to support HTTP agents from HTTPS Vercel
  */
 async function agentRequest(agentUrl, endpoint, body) {
   const cookieStore = cookies();
@@ -27,25 +28,45 @@ async function agentRequest(agentUrl, endpoint, body) {
     throw new Error('Authentication required');
   }
 
-  const url = `${agentUrl}${endpoint}`;
-  console.log(`🔗 Agent Request: ${url}`);
+  const targetUrl = `${agentUrl}${endpoint}`;
+  console.log(`🔗 Agent Request (via internal proxy): ${targetUrl}`);
 
-  const response = await fetch(url, {
+  // Use internal proxy for agent requests to avoid mixed content issues
+  const proxyUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/db-agent/proxy`;
+
+  const response = await fetch(proxyUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Cookie': `authToken=${authToken}`
     },
-    body: JSON.stringify(body),
-    credentials: 'include' // Important: include cookies in cross-origin requests
+    body: JSON.stringify({
+      targetUrl,
+      method: 'POST',
+      body,
+      headers: {
+        'Cookie': `authToken=${authToken}`
+      }
+    }),
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Request failed' }));
+    const error = await response.json().catch(() => ({ message: 'Proxy request failed' }));
+    console.error(`❌ Agent request failed:`, error);
     throw new Error(error.message || `Agent request failed: ${response.status}`);
   }
 
-  return await response.json();
+  const data = await response.json();
+
+  // Log proxy metadata
+  if (data._proxy) {
+    console.log(`   Proxy duration: ${data._proxy.duration}ms`);
+  }
+
+  if (!data.success) {
+    throw new Error(data.message || 'Agent request returned unsuccessful response');
+  }
+
+  return data;
 }
 
 /**

@@ -400,31 +400,64 @@ const DBSyncTool = () => {
 
     setIsLoadingSource(true);
     try {
-      // Determine endpoint based on agent mode
-      const endpoint = useAgentMode && sourceAgentUrl
-        ? `${sourceAgentUrl}/api/db-agent/source/fetch-tables`
-        : "/api/db-sync/fetch-tables";
+      let endpoint, requestBody;
+
+      if (useAgentMode && sourceAgentUrl) {
+        // Use proxy for agent requests to avoid mixed content issues
+        endpoint = "/api/db-agent/proxy";
+        requestBody = {
+          targetUrl: `${sourceAgentUrl}/api/db-agent/source/fetch-tables`,
+          method: "POST",
+          body: {
+            dbType: sourceDB,
+            config: sourceConfigMode === "url" ? null : sourceConfig,
+            connectionUrl: sourceConfigMode === "url" ? sourceConnectionUrl : null,
+          },
+        };
+      } else {
+        // Direct local request
+        endpoint = "/api/db-sync/fetch-tables";
+        requestBody = {
+          dbType: sourceDB,
+          config: sourceConfigMode === "url" ? null : sourceConfig,
+          connectionUrl: sourceConfigMode === "url" ? sourceConnectionUrl : null,
+        };
+      }
 
       const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          dbType: sourceDB,
-          config: sourceConfigMode === "url" ? null : sourceConfig,
-          connectionUrl: sourceConfigMode === "url" ? sourceConnectionUrl : null,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       const data = await response.json();
+
+      // Log proxy metadata if available
+      if (data._proxy) {
+        console.log(`[Source] Request via proxy took ${data._proxy.duration}ms`);
+      }
+
       if (data.success) {
         setSourceTables(data.tables);
         toast.success(`Fetched ${data.tables.length} tables from source${useAgentMode ? ' (via agent)' : ''}`);
       } else {
-        toast.error(data.message || "Failed to fetch source tables");
+        // Enhanced error logging
+        console.error("❌ [Source] Failed to fetch tables:");
+        console.error(`   Error Code: ${data.error || 'UNKNOWN'}`);
+        console.error(`   Message: ${data.message}`);
+        console.error(`   Target URL: ${data.targetUrl || 'N/A'}`);
+
+        const errorMsg = data.error === 'NETWORK_ERROR'
+          ? `Cannot connect to source agent. ${data.message}`
+          : data.error === 'TIMEOUT'
+          ? `Source agent timeout. ${data.message}`
+          : data.message || "Failed to fetch source tables";
+
+        toast.error(errorMsg, { duration: 5000 });
       }
     } catch (error) {
-      console.error("Error fetching source tables:", error);
-      toast.error("Error connecting to source database");
+      console.error("❌ [Source] Unexpected error:", error);
+      toast.error(`Error connecting to source database: ${error.message}`);
     } finally {
       setIsLoadingSource(false);
     }
@@ -467,22 +500,43 @@ const DBSyncTool = () => {
 
     setIsLoadingTarget(true);
     try {
-      // Determine endpoint based on agent mode
-      const endpoint = useAgentMode && targetAgentUrl
-        ? `${targetAgentUrl}/api/db-agent/target/fetch-tables`
-        : "/api/db-sync/fetch-tables";
+      let endpoint, requestBody;
+
+      if (useAgentMode && targetAgentUrl) {
+        // Use proxy for agent requests to avoid mixed content issues
+        endpoint = "/api/db-agent/proxy";
+        requestBody = {
+          targetUrl: `${targetAgentUrl}/api/db-agent/target/fetch-tables`,
+          method: "POST",
+          body: {
+            dbType: targetDB,
+            config: targetConfigMode === "url" ? null : targetConfig,
+            connectionUrl: targetConfigMode === "url" ? targetConnectionUrl : null,
+          },
+        };
+      } else {
+        // Direct local request
+        endpoint = "/api/db-sync/fetch-tables";
+        requestBody = {
+          dbType: targetDB,
+          config: targetConfigMode === "url" ? null : targetConfig,
+          connectionUrl: targetConfigMode === "url" ? targetConnectionUrl : null,
+        };
+      }
 
       const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          dbType: targetDB,
-          config: targetConfigMode === "url" ? null : targetConfig,
-          connectionUrl: targetConfigMode === "url" ? targetConnectionUrl : null,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       const data = await response.json();
+
+      // Log proxy metadata if available
+      if (data._proxy) {
+        console.log(`[Target] Request via proxy took ${data._proxy.duration}ms`);
+      }
+
       if (data.success) {
         setTargetTables(data.tables);
         setTargetFetched(true);
@@ -500,11 +554,23 @@ const DBSyncTool = () => {
           toast.success(`Fetched ${data.tables.length} tables from target${useAgentMode ? ' (via agent)' : ''}`);
         }
       } else {
-        toast.error(data.message || "Failed to fetch target tables");
+        // Enhanced error logging
+        console.error("❌ [Target] Failed to fetch tables:");
+        console.error(`   Error Code: ${data.error || 'UNKNOWN'}`);
+        console.error(`   Message: ${data.message}`);
+        console.error(`   Target URL: ${data.targetUrl || 'N/A'}`);
+
+        const errorMsg = data.error === 'NETWORK_ERROR'
+          ? `Cannot connect to target agent. ${data.message}`
+          : data.error === 'TIMEOUT'
+          ? `Target agent timeout. ${data.message}`
+          : data.message || "Failed to fetch target tables";
+
+        toast.error(errorMsg, { duration: 5000 });
       }
     } catch (error) {
-      console.error("Error fetching target tables:", error);
-      toast.error("Error connecting to target database");
+      console.error("❌ [Target] Unexpected error:", error);
+      toast.error(`Error connecting to target database: ${error.message}`);
     } finally {
       setIsLoadingTarget(false);
     }
