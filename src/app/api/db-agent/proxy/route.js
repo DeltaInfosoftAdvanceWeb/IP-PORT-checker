@@ -28,7 +28,7 @@ export async function POST(req) {
 
     // Forward the request to the target agent with timeout
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 second timeout for large data transfers
 
     // Build headers - simple API key authentication
     const requestHeaders = {
@@ -60,12 +60,12 @@ export async function POST(req) {
       clearTimeout(timeoutId);
 
       if (fetchError.name === 'AbortError') {
-        console.error(`❌ [PROXY] Request timeout after 30s`);
+        console.error(`❌ [PROXY] Request timeout after 90s`);
         console.error(`   Target: ${targetUrl}`);
         return NextResponse.json(
           {
             success: false,
-            message: `Request timeout: Agent at ${targetUrl} did not respond within 30 seconds`,
+            message: `Request timeout: Agent at ${targetUrl} did not respond within 90 seconds`,
             error: "TIMEOUT",
             targetUrl,
           },

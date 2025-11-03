@@ -51,14 +51,21 @@ export async function POST(req) {
     if (dbType === "postgresql") {
       const { Client } = require("pg");
       client = connectionUrl
-        ? new Client({ connectionString: connectionUrl, connectionTimeoutMillis: 10000 })
+        ? new Client({
+            connectionString: connectionUrl,
+            connectionTimeoutMillis: 30000,
+            query_timeout: 60000,
+            statement_timeout: 60000
+          })
         : new Client({
             host: config.host,
             port: parseInt(config.port),
             database: config.database,
             user: config.username,
             password: config.password,
-            connectionTimeoutMillis: 10000,
+            connectionTimeoutMillis: 30000,
+            query_timeout: 60000,
+            statement_timeout: 60000
           });
 
       await client.connect();
@@ -89,8 +96,14 @@ export async function POST(req) {
             options: {
               encrypt: true,
               trustServerCertificate: true,
-              connectionTimeout: 10000,
+              connectionTimeout: 30000,
+              requestTimeout: 60000,
             },
+            pool: {
+              max: 10,
+              min: 2,
+              idleTimeoutMillis: 30000
+            }
           };
 
       pool = await sql.connect(sqlConfig);

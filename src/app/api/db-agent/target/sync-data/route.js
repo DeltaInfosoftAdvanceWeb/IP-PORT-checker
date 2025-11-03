@@ -64,14 +64,21 @@ export async function POST(req) {
     if (dbType === "postgresql") {
       const { Client } = require("pg");
       client = connectionUrl
-        ? new Client({ connectionString: connectionUrl, connectionTimeoutMillis: 10000 })
+        ? new Client({
+            connectionString: connectionUrl,
+            connectionTimeoutMillis: 30000,
+            query_timeout: 60000,
+            statement_timeout: 60000
+          })
         : new Client({
             host: config.host,
             port: parseInt(config.port),
             database: config.database,
             user: config.username,
             password: config.password,
-            connectionTimeoutMillis: 10000,
+            connectionTimeoutMillis: 30000,
+            query_timeout: 60000,
+            statement_timeout: 60000
           });
 
       await client.connect();
@@ -101,25 +108,37 @@ export async function POST(req) {
       const actualStrategy = (syncStrategy === 'merge' && primaryKeys.length === 0) ? 'replace' : syncStrategy;
 
       if (actualStrategy === 'replace') {
-        // For replace, just insert all data
+        // For replace, use optimized bulk insert (multi-row VALUES)
         await client.query('BEGIN');
         try {
           const batchColumns = columns.map(c => `"${c}"`).join(', ');
 
-          for (let i = 0; i < data.length; i++) {
-            const row = data[i];
-            const values = columns.map((_, idx) => `$${idx + 1}`);
-            const flatValues = columns.map(col => row[col]);
+          // Bulk insert in chunks of 1000 rows for optimal performance
+          const CHUNK_SIZE = 1000;
+          let totalInserted = 0;
 
-            await client.query(
-              `INSERT INTO "${tableName}" (${batchColumns}) VALUES (${values.join(', ')})`,
-              flatValues
-            );
+          for (let chunkStart = 0; chunkStart < data.length; chunkStart += CHUNK_SIZE) {
+            const chunk = data.slice(chunkStart, chunkStart + CHUNK_SIZE);
+
+            // Build multi-row INSERT statement
+            const valuesClauses = [];
+            const allValues = [];
+            let paramIndex = 1;
+
+            for (const row of chunk) {
+              const rowPlaceholders = columns.map(() => `$${paramIndex++}`);
+              valuesClauses.push(`(${rowPlaceholders.join(', ')})`);
+              allValues.push(...columns.map(col => row[col]));
+            }
+
+            const insertQuery = `INSERT INTO "${tableName}" (${batchColumns}) VALUES ${valuesClauses.join(', ')}`;
+            await client.query(insertQuery, allValues);
+            totalInserted += chunk.length;
           }
 
           await client.query('COMMIT');
-          syncResult.inserted = data.length;
-          console.log(`✅ Inserted ${data.length} rows`);
+          syncResult.inserted = totalInserted;
+          console.log(`✅ Bulk inserted ${totalInserted} rows (optimized multi-row)`);
         } catch (error) {
           await client.query('ROLLBACK');
           throw error;
@@ -155,8 +174,14 @@ export async function POST(req) {
             options: {
               encrypt: true,
               trustServerCertificate: true,
-              connectionTimeout: 10000,
+              connectionTimeout: 30000,
+              requestTimeout: 60000,
             },
+            pool: {
+              max: 10,
+              min: 2,
+              idleTimeoutMillis: 30000
+            }
           };
 
       pool = await sql.connect(sqlConfig);
