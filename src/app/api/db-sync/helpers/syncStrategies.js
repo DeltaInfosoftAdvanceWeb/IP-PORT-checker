@@ -1,11 +1,19 @@
 // Sync strategy implementations with transaction support
 
-import { 
-  getColumnSqlType, 
+import {
+  getColumnSqlType,
   convertValueForMssql,
   getPostgresPrimaryKey,
-  getMssqlPrimaryKey 
+  getMssqlPrimaryKey
 } from './dbHelpers.js';
+
+/**
+ * Sanitize table name for use in identifiers (removes special characters)
+ */
+function sanitizeTableName(tableName) {
+  // Replace hyphens, spaces, and other special chars with underscores
+  return tableName.replace(/[^a-zA-Z0-9_]/g, '_');
+}
 
 /**
  * Replace strategy for PostgreSQL target
@@ -256,9 +264,10 @@ export async function mergeStrategyMssql(pool, tableName, sourceData, sourceColu
       return { inserted: 0, updated: 0, deleted: 0, skipped: 0 };
     }
     
-    // Create temp table for bulk insert
-    const tempTableName = `#TempSync_${tableName}_${Date.now()}`;
-    
+    // Create temp table for bulk insert (sanitize table name to avoid special characters)
+    const sanitizedTableName = sanitizeTableName(tableName);
+    const tempTableName = `#TempSync_${sanitizedTableName}_${Date.now()}`;
+
     // Create temp table with same structure
     const columns = sourceColumns.map(col => {
       const schemaCol = targetSchema.find(s => s.column_name === col);

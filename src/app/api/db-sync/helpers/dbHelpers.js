@@ -26,7 +26,7 @@ export const mapPostgresToMssql = (pgType) => {
 };
 
 // Type mapping: MSSQL to PostgreSQL
-export const mapMssqlToPostgres = (mssqlType) => {
+export const mapMssqlToPostgres = (mssqlType, characterLength = null) => {
   const typeMap = {
     'int': 'INTEGER',
     'bigint': 'BIGINT',
@@ -53,7 +53,17 @@ export const mapMssqlToPostgres = (mssqlType) => {
     'image': 'BYTEA',
   };
   const baseType = mssqlType.toLowerCase().split('(')[0];
-  return typeMap[baseType] || 'TEXT';
+  const mappedType = typeMap[baseType] || 'TEXT';
+
+  // Handle string types with length preservation
+  if (['nchar', 'char'].includes(baseType) && characterLength && characterLength > 0) {
+    return `${mappedType}(${characterLength})`;
+  }
+  if (['nvarchar', 'varchar'].includes(baseType) && characterLength && characterLength > 0 && characterLength !== -1) {
+    return `${mappedType}(${characterLength})`;
+  }
+
+  return mappedType;
 };
 
 /**
@@ -216,12 +226,25 @@ export async function mssqlTableExists(pool, tableName) {
  */
 export async function createPostgresTable(client, tableName, sourceSchema, sourceDB) {
   const columns = sourceSchema.map(col => {
-    let dataType = sourceDB === "postgresql"
-      ? col.data_type
-      : mapMssqlToPostgres(col.data_type);
+    let dataType;
 
-    if (col.character_maximum_length && dataType.includes('VARCHAR')) {
-      dataType = `VARCHAR(${col.character_maximum_length})`;
+    if (sourceDB === "postgresql") {
+      dataType = col.data_type;
+
+      // Preserve character length for PostgreSQL source
+      if (col.character_maximum_length && ['character varying', 'character'].includes(col.data_type)) {
+        const baseType = col.data_type === 'character varying' ? 'VARCHAR' : 'CHAR';
+        dataType = `${baseType}(${col.character_maximum_length})`;
+      }
+    } else {
+      // Source is MSSQL - use updated mapping with length preservation
+      dataType = mapMssqlToPostgres(col.data_type, col.character_maximum_length);
+
+      // Handle decimal/numeric types with precision and scale
+      if (['decimal', 'numeric'].includes(col.data_type.toLowerCase()) && col.numeric_precision) {
+        const scale = col.numeric_scale !== null ? col.numeric_scale : 0;
+        dataType = `NUMERIC(${col.numeric_precision}, ${scale})`;
+      }
     }
 
     const nullable = col.is_nullable === 'YES' ? '' : 'NOT NULL';

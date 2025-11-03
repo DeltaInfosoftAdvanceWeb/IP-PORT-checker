@@ -326,6 +326,7 @@ const DBSyncTool = () => {
   const [showNewTables, setShowNewTables] = useState(true);
   const [showExistingTables, setShowExistingTables] = useState(true);
   const [targetFetched, setTargetFetched] = useState(false);
+  const [syncStrategy, setSyncStrategy] = useState("replace"); // "replace" or "merge"
 
   const handleSourceDBChange = (value) => {
     setSourceDB(value);
@@ -538,6 +539,7 @@ const DBSyncTool = () => {
           sourceConnectionUrl: sourceConfigMode === "url" ? sourceConnectionUrl : null,
           targetConnectionUrl: targetConfigMode === "url" ? targetConnectionUrl : null,
           tables: selectedTables,
+          syncStrategy: syncStrategy,
         }),
       });
 
@@ -678,6 +680,150 @@ const DBSyncTool = () => {
             otherConnectionUrl={sourceConnectionUrl}
           />
         </div>
+
+        {/* Sync Strategy Selection */}
+        {sourceTables.length > 0 && targetFetched && (
+          <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-gray-100 overflow-hidden mb-3 sm:mb-6">
+            <div className="bg-gradient-to-r from-purple-50 via-pink-50 to-indigo-50 border-b border-gray-100 px-3 sm:px-8 py-4 sm:py-6">
+              <div className="flex items-center gap-3 sm:gap-4">
+                <div className="bg-gradient-to-br from-purple-500 to-indigo-600 p-2 rounded-xl sm:rounded-2xl shadow-lg">
+                  <RefreshCw className="w-5 sm:w-7 h-5 sm:h-7 text-white" />
+                </div>
+                <div className="flex-1">
+                  <h2 className="text-lg sm:text-2xl font-bold text-gray-900 mb-1">
+                    Sync Strategy
+                  </h2>
+                  <p className="text-xs sm:text-sm text-gray-600">Choose how to synchronize your data</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-3 sm:p-8">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* Replace Strategy */}
+                <button
+                  onClick={() => setSyncStrategy("replace")}
+                  className={`text-left p-4 sm:p-6 rounded-xl border-2 transition-all duration-200 hover:shadow-lg ${
+                    syncStrategy === "replace"
+                      ? "border-red-500 bg-gradient-to-br from-red-50 to-orange-50 shadow-lg"
+                      : "border-gray-200 bg-white hover:border-gray-300"
+                  }`}
+                >
+                  <div className="flex items-start gap-3 mb-3">
+                    <div className={`p-2 rounded-lg ${syncStrategy === "replace" ? "bg-red-500" : "bg-gray-300"}`}>
+                      <Database className="w-5 h-5 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-1">Hard Sync (Replace)</h3>
+                      <p className="text-xs sm:text-sm text-gray-600 leading-relaxed">
+                        Complete refresh - Deletes all existing data and inserts fresh data from source
+                      </p>
+                    </div>
+                    {syncStrategy === "replace" && (
+                      <CheckCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                    )}
+                  </div>
+
+                  <div className="space-y-3 mb-4">
+                    <div>
+                      <p className="text-xs font-bold text-green-700 mb-1.5">✓ Benefits:</p>
+                      <ul className="text-xs text-gray-700 space-y-1 ml-4">
+                        <li>• Ensures 100% data consistency with source</li>
+                        <li>• Removes orphaned/deleted records automatically</li>
+                        <li>• Simple and predictable behavior</li>
+                        <li>• No primary key required</li>
+                        <li>• Faster for large datasets</li>
+                      </ul>
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-red-700 mb-1.5">⚠ Risks:</p>
+                      <ul className="text-xs text-gray-700 space-y-1 ml-4">
+                        <li>• <strong>ALL existing data will be deleted</strong></li>
+                        <li>• Cannot preserve target-only data</li>
+                        <li>• Longer downtime during sync</li>
+                        <li>• Loses any manual changes in target</li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-xs font-semibold text-gray-600 bg-gray-100 px-3 py-2 rounded-lg">
+                    <span>Best for:</span>
+                    <span className="text-gray-800">Complete refreshes, data warehouses, reporting databases</span>
+                  </div>
+                </button>
+
+                {/* Merge Strategy */}
+                <button
+                  onClick={() => setSyncStrategy("merge")}
+                  className={`text-left p-4 sm:p-6 rounded-xl border-2 transition-all duration-200 hover:shadow-lg ${
+                    syncStrategy === "merge"
+                      ? "border-green-500 bg-gradient-to-br from-green-50 to-emerald-50 shadow-lg"
+                      : "border-gray-200 bg-white hover:border-gray-300"
+                  }`}
+                >
+                  <div className="flex items-start gap-3 mb-3">
+                    <div className={`p-2 rounded-lg ${syncStrategy === "merge" ? "bg-green-500" : "bg-gray-300"}`}>
+                      <ArrowLeftRight className="w-5 h-5 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-1">Smart Sync (Merge)</h3>
+                      <p className="text-xs sm:text-sm text-gray-600 leading-relaxed">
+                        Intelligent upsert - Inserts new records and updates existing ones based on primary key
+                      </p>
+                    </div>
+                    {syncStrategy === "merge" && (
+                      <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
+                    )}
+                  </div>
+
+                  <div className="space-y-3 mb-4">
+                    <div>
+                      <p className="text-xs font-bold text-green-700 mb-1.5">✓ Benefits:</p>
+                      <ul className="text-xs text-gray-700 space-y-1 ml-4">
+                        <li>• Preserves existing data (no deletion)</li>
+                        <li>• Updates only changed records</li>
+                        <li>• Minimal downtime</li>
+                        <li>• Incremental sync capability</li>
+                        <li>• Safe for production systems</li>
+                      </ul>
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-red-700 mb-1.5">⚠ Risks:</p>
+                      <ul className="text-xs text-gray-700 space-y-1 ml-4">
+                        <li>• <strong>Requires primary key on tables</strong></li>
+                        <li>• Does not delete orphaned records</li>
+                        <li>• Slightly slower for full refreshes</li>
+                        <li>• May leave stale data if records deleted in source</li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-xs font-semibold text-gray-600 bg-gray-100 px-3 py-2 rounded-lg">
+                    <span>Best for:</span>
+                    <span className="text-gray-800">Continuous sync, live systems, incremental updates</span>
+                  </div>
+                </button>
+              </div>
+
+              {/* Important Notice */}
+              <div className="mt-4 p-4 bg-yellow-50 border-2 border-yellow-200 rounded-xl">
+                <div className="flex items-start gap-3">
+                  <span className="text-2xl">💡</span>
+                  <div className="flex-1">
+                    <p className="text-xs sm:text-sm font-bold text-yellow-900 mb-1">Important:</p>
+                    <p className="text-xs text-yellow-800 leading-relaxed">
+                      {syncStrategy === "replace" ? (
+                        <><strong>Hard Sync will permanently delete all data in target tables</strong> before inserting new data. Make sure you have backups if needed. This operation cannot be undone.</>
+                      ) : (
+                        <>Merge strategy requires tables to have primary keys defined. Tables without primary keys will automatically fall back to Hard Sync (replace) mode.</>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Table Selection and Sync */}
         {sourceTables.length > 0 && (
@@ -876,12 +1022,16 @@ const DBSyncTool = () => {
                 type="primary"
                 onClick={handleSync}
                 disabled={selectedTables.length === 0 || isSyncing || !targetFetched}
-                className="w-full !bg-gradient-to-r !from-green-500 !via-emerald-500 !to-teal-600 hover:!from-green-600 hover:!to-teal-700 !text-white !rounded-lg !font-semibold !shadow-lg hover:!shadow-xl transition-all duration-300"
+                className={`w-full !rounded-lg !font-semibold !shadow-lg hover:!shadow-xl transition-all duration-300 ${
+                  syncStrategy === "replace"
+                    ? "!bg-gradient-to-r !from-red-500 !via-orange-500 !to-red-600 hover:!from-red-600 hover:!to-orange-700"
+                    : "!bg-gradient-to-r !from-green-500 !via-emerald-500 !to-teal-600 hover:!from-green-600 hover:!to-teal-700"
+                } !text-white`}
                 icon={<ArrowRight className="w-4 h-4" />}
               >
                 {!targetFetched
                   ? "Connect Target Database First"
-                  : `Sync ${selectedTables.length} Table${selectedTables.length !== 1 ? "s" : ""}`
+                  : `${syncStrategy === "replace" ? "Hard Sync" : "Smart Sync"} ${selectedTables.length} Table${selectedTables.length !== 1 ? "s" : ""}`
                 }
               </Button>
             </div>
@@ -924,12 +1074,24 @@ const DBSyncTool = () => {
                     <span className="font-mono font-bold text-sm sm:text-lg text-gray-900 truncate">
                       {result.table}
                     </span>
-                    {result.tableCreated && (
-                      <span className="flex items-center gap-1 bg-blue-600 text-white px-2 py-1 rounded-full text-[10px] sm:text-xs font-bold shadow-md ml-auto">
-                        <span>✨</span>
-                        <span className="hidden sm:inline">Created</span>
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2 ml-auto">
+                      {result.strategy && (
+                        <span className={`flex items-center gap-1 px-2 py-1 rounded-full text-[10px] sm:text-xs font-bold shadow-md ${
+                          result.strategy.includes('replace')
+                            ? 'bg-red-100 text-red-700 border border-red-300'
+                            : 'bg-green-100 text-green-700 border border-green-300'
+                        }`}>
+                          {result.strategy.includes('replace') ? '🔄' : '⇄'}
+                          <span className="hidden sm:inline capitalize">{result.strategy.replace('replace (no PK)', 'replace')}</span>
+                        </span>
+                      )}
+                      {result.tableCreated && (
+                        <span className="flex items-center gap-1 bg-blue-600 text-white px-2 py-1 rounded-full text-[10px] sm:text-xs font-bold shadow-md">
+                          <span>✨</span>
+                          <span className="hidden sm:inline">Created</span>
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <p
                     className={`text-xs sm:text-base font-medium mb-2 ${

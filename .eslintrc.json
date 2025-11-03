@@ -10,6 +10,7 @@
     "@typescript-eslint/no-empty-interface": "off",
     "react-hooks/exhaustive-deps": "off",
     "react/no-unescaped-entities": "off",
-    "@typescript-eslint/no-empty-object": "off"
+    "@typescript-eslint/no-empty-object": "off",
+    "@typescript-eslint/no-require-imports": "off"
   }
 }
