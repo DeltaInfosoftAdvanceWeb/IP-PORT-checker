@@ -790,19 +790,22 @@ const DBSyncTool = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Agent Authentication Key * (Required for remote agents)
+                  <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                    <span className="text-red-600">*</span>
+                    API Key (Required)
                   </label>
                   <Input.Password
                     value={agentAuthKey}
                     onChange={(e) => setAgentAuthKey(e.target.value)}
-                    placeholder="Enter NEXT_PUBLIC_PASS_KEY from agent server"
+                    placeholder="Enter NEXT_PUBLIC_PASS_KEY from agent's .env file"
                     size="large"
                     prefix={<span className="text-gray-400">🔑</span>}
                   />
-                  <p className="text-xs text-gray-500 mt-1">
-                    This is the NEXT_PUBLIC_PASS_KEY value from the agent server's .env file
-                  </p>
+                  <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-800">
+                    <p className="font-semibold mb-1">Where to find this?</p>
+                    <p>On the agent server, open <code className="bg-blue-100 px-1 rounded">.env</code> file and copy the value of <code className="bg-blue-100 px-1 rounded">NEXT_PUBLIC_PASS_KEY</code></p>
+                    <p className="mt-1">Example: If <code className="bg-blue-100 px-1 rounded">NEXT_PUBLIC_PASS_KEY='123'</code> then enter <strong>123</strong></p>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

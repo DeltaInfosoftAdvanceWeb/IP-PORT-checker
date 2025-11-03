@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
 
-const PUBLIC_ROUTES = ['/login', '/api/login',"/signup","/api/backup-schedule/add"];
+const PUBLIC_ROUTES = ['/login', '/api/login', "/signup", "/api/backup-schedule/add"];
+// Note: All /api/db-agent/* routes use API key authentication instead of middleware
 
 async function verifyToken(token) {
   try {
@@ -50,7 +51,7 @@ export const config = {
     "/login",
     "/signup",
     "/api/login",
-    "/api/db-agent/:path*", // Protect all agent APIs
-    "/api/db-sync/:path*",  // Protect all sync APIs
+    // "/api/db-agent/:path*", // Protect all agent APIs
+    // "/api/db-sync/:path*",  // Protect all sync APIs
   ],
 };

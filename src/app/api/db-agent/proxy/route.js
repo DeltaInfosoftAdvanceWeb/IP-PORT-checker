@@ -24,34 +24,24 @@ export async function POST(req) {
     console.log(`   Target: ${targetUrl}`);
     console.log(`   Body:`, body ? JSON.stringify(body).substring(0, 200) + '...' : 'none');
 
-    // Get authentication token from the original request cookies
-    const cookieHeader = req.headers.get('cookie');
-    const authToken = cookieHeader?.split(';')
-      .find(c => c.trim().startsWith('authToken='))
-      ?.split('=')[1];
-
-    console.log(`   Auth Token: ${authToken ? '✓ Present' : '✗ Missing'}`);
     console.log(`   Agent Auth Key: ${agentAuthKey ? '✓ Provided' : '✗ Not provided'}`);
 
     // Forward the request to the target agent with timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
-    // Build headers with auth token
+    // Build headers - simple API key authentication
     const requestHeaders = {
       "Content-Type": "application/json",
       ...headers,
     };
 
-    // Use agent auth key if provided, otherwise use authToken
+    // Add API key for authentication
     if (agentAuthKey) {
-      // Add agent auth key as a header for agent-to-agent auth
-      requestHeaders['x-agent-auth-key'] = agentAuthKey;
-      console.log(`   Using agent auth key for authentication`);
-    } else if (authToken) {
-      // Fallback to cookie-based auth
-      requestHeaders['Cookie'] = `authToken=${authToken}`;
-      console.log(`   Using cookie-based authentication`);
+      requestHeaders['x-api-key'] = agentAuthKey;
+      console.log(`   Using API key authentication`);
+    } else {
+      console.log(`   ⚠️ No API key provided - request may fail`);
     }
 
     console.log(`   Headers:`, Object.keys(requestHeaders));

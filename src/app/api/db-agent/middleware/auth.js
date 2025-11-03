@@ -1,70 +1,50 @@
 /**
- * Authentication middleware for DB Agent APIs
- * Note: Main authentication is handled by src/middleware.js
- * This is just a helper to check if auth passed through
+ * Simple API Key Authentication for DB Agent APIs
+ * No cookies, no JWT, just a simple API key check
  */
 
-import { cookies } from 'next/headers';
-
 /**
- * Validate authentication token from request
- * Supports both cookie-based auth and agent-to-agent auth key
+ * Validate API key from request header
  * @param {Request} req - Next.js request object
  * @returns {Object} - { authenticated: boolean, error?: string }
  */
-export async function validateAgentAuth(req) {
+export function validateAgentAuth(req) {
   try {
-    // Check for agent-to-agent authentication key first
-    const agentAuthKey = req.headers.get('x-agent-auth-key');
-    const expectedAuthKey = process.env.NEXT_PUBLIC_PASS_KEY;
+    // Get API key from header
+    const apiKey = req.headers.get('x-api-key');
+    const expectedApiKey = process.env.NEXT_PUBLIC_PASS_KEY;
 
-    if (agentAuthKey) {
-      console.log('   🔑 Agent auth key detected, validating...');
-      if (agentAuthKey === expectedAuthKey) {
-        console.log('   ✅ Agent auth key valid');
-        return { authenticated: true, authMethod: 'agent-key' };
-      } else {
-        console.log('   ❌ Agent auth key invalid');
-        return {
-          authenticated: false,
-          error: 'Invalid agent authentication key'
-        };
-      }
-    }
-
-    // Fallback to cookie-based authentication
-    const cookieStore = cookies();
-    const authToken = cookieStore.get('authToken')?.value;
-
-    if (!authToken) {
+    if (!apiKey) {
+      console.log('   ❌ No API key provided');
       return {
         authenticated: false,
-        error: 'Authentication required. No auth token or agent key found.'
+        error: 'API key required. Please provide x-api-key header.'
       };
     }
 
-    // Token exists and was validated by middleware
-    return { authenticated: true, token: authToken, authMethod: 'cookie' };
+    if (!expectedApiKey) {
+      console.error('   ❌ NEXT_PUBLIC_PASS_KEY not configured in .env');
+      return {
+        authenticated: false,
+        error: 'Server configuration error. API key not configured.'
+      };
+    }
+
+    if (apiKey === expectedApiKey) {
+      console.log('   ✅ API key valid');
+      return { authenticated: true };
+    } else {
+      console.log('   ❌ API key invalid');
+      return {
+        authenticated: false,
+        error: 'Invalid API key'
+      };
+    }
   } catch (error) {
-    console.error('Auth validation error:', error);
+    console.error('   ❌ Auth validation error:', error);
     return {
       authenticated: false,
       error: 'Authentication validation failed.'
     };
-  }
-}
-
-/**
- * Get auth token for making agent requests
- * @returns {string|null} - Auth token or null
- */
-export function getAuthToken() {
-  try {
-    const cookieStore = cookies();
-    const authToken = cookieStore.get('authToken')?.value;
-    return authToken || null;
-  } catch (error) {
-    console.error('Error getting auth token:', error);
-    return null;
   }
 }
