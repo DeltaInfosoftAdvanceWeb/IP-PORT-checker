@@ -2,6 +2,36 @@ import { validateAgentAuth } from "../../middleware/auth.js";
 import { corsResponse, handleCorsPreFlight } from "../../middleware/cors.js";
 
 /**
+ * Sanitize data to handle binary/buffer columns that can't be JSON serialized
+ * Converts Buffers to base64 strings with a special marker prefix
+ */
+function sanitizeData(rows) {
+  return rows.map(row => {
+    const sanitized = {};
+    for (const [key, value] of Object.entries(row)) {
+      // Handle Buffer objects (binary data)
+      if (Buffer.isBuffer(value)) {
+        // Mark as base64-encoded binary data with special prefix
+        sanitized[key] = `__BINARY_BASE64__${value.toString('base64')}`;
+      }
+      // Handle Date objects
+      else if (value instanceof Date) {
+        sanitized[key] = value.toISOString();
+      }
+      // Handle null/undefined
+      else if (value === null || value === undefined) {
+        sanitized[key] = null;
+      }
+      // Handle regular values
+      else {
+        sanitized[key] = value;
+      }
+    }
+    return sanitized;
+  });
+}
+
+/**
  * Handle preflight OPTIONS request
  */
 export async function OPTIONS(req) {
@@ -80,7 +110,7 @@ export async function POST(req) {
         `SELECT * FROM "${tableName}" LIMIT $1 OFFSET $2`,
         [limit, offset]
       );
-      data = dataResult.rows;
+      data = sanitizeData(dataResult.rows);
     }
     // Connect to MSSQL
     else if (dbType === "mssql") {
@@ -120,7 +150,7 @@ export async function POST(req) {
         OFFSET ${offset} ROWS
         FETCH NEXT ${limit} ROWS ONLY
       `);
-      data = dataResult.recordset;
+      data = sanitizeData(dataResult.recordset);
     }
 
     // Cleanup connections

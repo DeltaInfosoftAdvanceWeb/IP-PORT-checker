@@ -4,6 +4,27 @@ import { getPostgresSchema, getMssqlSchema, getPostgresPrimaryKey, getMssqlPrima
 import { executeSyncStrategy } from "../../../db-sync/helpers/syncStrategies.js";
 
 /**
+ * Desanitize data to restore binary columns from base64 strings
+ */
+function desanitizeData(rows) {
+  return rows.map(row => {
+    const desanitized = {};
+    for (const [key, value] of Object.entries(row)) {
+      // Check if value is a base64-encoded binary string
+      if (typeof value === 'string' && value.startsWith('__BINARY_BASE64__')) {
+        const base64Data = value.replace('__BINARY_BASE64__', '');
+        desanitized[key] = Buffer.from(base64Data, 'base64');
+      }
+      // Keep other values as-is
+      else {
+        desanitized[key] = value;
+      }
+    }
+    return desanitized;
+  });
+}
+
+/**
  * Handle preflight OPTIONS request
  */
 export async function OPTIONS(req) {
@@ -57,6 +78,9 @@ export async function POST(req) {
         req
       );
     }
+
+    // Desanitize data to restore binary columns
+    const processedData = desanitizeData(data);
 
     let syncResult = { inserted: 0, updated: 0, deleted: 0, skipped: 0 };
 
@@ -117,8 +141,8 @@ export async function POST(req) {
           const CHUNK_SIZE = 1000;
           let totalInserted = 0;
 
-          for (let chunkStart = 0; chunkStart < data.length; chunkStart += CHUNK_SIZE) {
-            const chunk = data.slice(chunkStart, chunkStart + CHUNK_SIZE);
+          for (let chunkStart = 0; chunkStart < processedData.length; chunkStart += CHUNK_SIZE) {
+            const chunk = processedData.slice(chunkStart, chunkStart + CHUNK_SIZE);
 
             // Build multi-row INSERT statement
             const valuesClauses = [];
@@ -151,7 +175,7 @@ export async function POST(req) {
           targetClient: client,
           targetPool: null,
           tableName,
-          sourceData: data,
+          sourceData: processedData,
           sourceColumns: columns,
           targetSchema,
           primaryKeys,
@@ -216,7 +240,7 @@ export async function POST(req) {
         targetClient: null,
         targetPool: pool,
         tableName,
-        sourceData: data,
+        sourceData: processedData,
         sourceColumns: columns,
         targetSchema,
         primaryKeys,
